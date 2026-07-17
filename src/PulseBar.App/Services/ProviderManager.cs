@@ -24,7 +24,7 @@ public sealed class ProviderManager : BackgroundService
     private readonly IAppPaths _paths;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<ProviderManager> _logger;
-    private readonly List<IUsageProvider> _providers = [];
+    private readonly List<(ProviderProfileConfig Profile, IUsageProvider Provider)> _providers = [];
     private readonly ConcurrentDictionary<string, UsageSnapshot> _snapshots = new();
 
     public ProviderManager(
@@ -42,13 +42,102 @@ public sealed class ProviderManager : BackgroundService
     public event EventHandler<IReadOnlyList<UsageSnapshot>>? SnapshotsUpdated;
 
     public IReadOnlyList<UsageSnapshot> CurrentSnapshots
-        => _snapshots.Values.OrderBy(s => s.ProviderId, StringComparer.Ordinal).ToList();
+        => _snapshots.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => kv.Value).ToList();
 
     public void RefreshAll()
     {
-        foreach (var provider in _providers)
+        foreach (var (_, provider) in _providers)
         {
             _ = provider.RefreshAsync(CancellationToken.None);
+        }
+    }
+
+    /// <summary>Starts the official Codex browser login; returns the auth URL to open.</summary>
+    public async Task<string?> BeginCodexLoginAsync(CancellationToken cancellationToken)
+    {
+        var codex = _providers.Select(p => p.Provider).OfType<CodexProvider>().FirstOrDefault();
+        if (codex is null)
+        {
+            return null;
+        }
+
+        return await codex.BeginLoginAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Manual statusline install. With <paramref name="wrapExisting"/> (user consent
+    /// given) a foreign statusLine is wrapped so both PulseBar and the original HUD run.
+    /// </summary>
+    public async Task<StatuslineInstallResult?> InstallStatuslineAsync(
+        bool wrapExisting,
+        CancellationToken cancellationToken)
+    {
+        var profile = _config.Current.Providers.FirstOrDefault(p => p.ProviderId == "claude");
+        if (profile is null)
+        {
+            return null;
+        }
+
+        var bridgeExe = Path.Combine(AppContext.BaseDirectory, "PulseBar.Bridge.exe");
+        if (!File.Exists(bridgeExe))
+        {
+            return null;
+        }
+
+        var settingsPath = await ResolveClaudeSettingsPathAsync(profile, cancellationToken).ConfigureAwait(false);
+        if (settingsPath is null)
+        {
+            return StatuslineInstallResult.SettingsUnreadable;
+        }
+
+        var isWsl = profile.Environment == ExecutionEnvironmentType.Wsl;
+        var result = wrapExisting
+            ? ClaudeSettingsInstaller.InstallWrapped(
+                settingsPath, bridgeExe, _paths.ClaudeStatusCacheFile, isWsl, _paths.BackupsDir)
+            : ClaudeSettingsInstaller.Install(
+                settingsPath,
+                ClaudeSettingsInstaller.BuildBridgeCommand(bridgeExe, _paths.ClaudeStatusCacheFile, isWsl),
+                _paths.BackupsDir);
+
+        _logger.LogInformation("Claude statusline install (wrap={Wrap}): {Result}", wrapExisting, result);
+        return result;
+    }
+
+    /// <summary>Opens a terminal running the detected claude CLI so the user can /login.</summary>
+    public bool OpenClaudeTerminal()
+    {
+        var profile = _config.Current.Providers.FirstOrDefault(p => p.ProviderId == "claude");
+        if (profile is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                UseShellExecute = true,
+                CreateNoWindow = false,
+            };
+
+            if (profile.Environment == ExecutionEnvironmentType.Wsl)
+            {
+                startInfo.Arguments =
+                    $"/c start \"Claude Code\" wsl.exe -d {profile.WslDistribution} -- {profile.ExecutablePath ?? "claude"}";
+            }
+            else
+            {
+                startInfo.Arguments = $"/c start \"Claude Code\" \"{profile.ExecutablePath ?? "claude"}\"";
+            }
+
+            System.Diagnostics.Process.Start(startInfo);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to open Claude terminal.");
+            return false;
         }
     }
 
@@ -75,16 +164,18 @@ public sealed class ProviderManager : BackgroundService
                     continue;
                 }
 
+                var profileId = profileConfig.Id;
                 provider.SnapshotUpdated += (_, snapshot) =>
                 {
-                    _snapshots[snapshot.ProviderId] = snapshot;
+                    // Keyed by profile so multiple profiles of one provider coexist.
+                    _snapshots[profileId] = snapshot;
                     SnapshotsUpdated?.Invoke(this, CurrentSnapshots);
                 };
                 provider.StateChanged += (_, state) => _logger.LogInformation(
                     "Provider {Provider}: {State} {Message}",
                     state.ProviderId, state.State, state.Message ?? "");
 
-                _providers.Add(provider);
+                _providers.Add((profileConfig, provider));
                 await provider.StartAsync(profileConfig.ToProfile(), stoppingToken).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -96,7 +187,7 @@ public sealed class ProviderManager : BackgroundService
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        foreach (var provider in _providers)
+        foreach (var (_, provider) in _providers)
         {
             try
             {

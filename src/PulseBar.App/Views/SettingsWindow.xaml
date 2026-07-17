@@ -34,14 +34,23 @@
                   ItemsSource="{Binding Layouts}"
                   SelectedItem="{Binding SelectedLayout}" />
 
-        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
-                    Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button MinWidth="88" Margin="0,0,8,0"
-                    Content="{Binding Loc[Settings_Save]}"
-                    Click="OnSaveClick" />
-            <Button MinWidth="88"
-                    Content="{Binding Loc[Settings_Cancel]}"
-                    Click="OnCancelClick" />
-        </StackPanel>
+        <DockPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2">
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                <Button MinWidth="96" Margin="0,0,8,0"
+                        Content="{Binding Loc[Settings_Export]}"
+                        Click="OnExportClick" />
+                <Button MinWidth="96"
+                        Content="{Binding Loc[Settings_Import]}"
+                        Click="OnImportClick" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button MinWidth="88" Margin="0,0,8,0"
+                        Content="{Binding Loc[Settings_Save]}"
+                        Click="OnSaveClick" />
+                <Button MinWidth="88"
+                        Content="{Binding Loc[Settings_Cancel]}"
+                        Click="OnCancelClick" />
+            </StackPanel>
+        </DockPanel>
     </Grid>
 </Window>

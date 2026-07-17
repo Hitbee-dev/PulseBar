@@ -11,6 +11,7 @@ namespace PulseBar.App.Views;
 public partial class OverlayWindow : Window
 {
     private readonly OverlayPositioner _positioner;
+    private readonly Action _openDetail;
     private readonly Action _openSettings;
     private readonly Action _requestRefresh;
     private uint _taskbarCreatedMessage;
@@ -19,10 +20,12 @@ public partial class OverlayWindow : Window
         OverlayViewModel viewModel,
         ILocalizationService loc,
         OverlayPositioner positioner,
+        Action openDetail,
         Action openSettings,
         Action requestRefresh)
     {
         _positioner = positioner;
+        _openDetail = openDetail;
         _openSettings = openSettings;
         _requestRefresh = requestRefresh;
         DataContext = new { Bar = viewModel, Loc = loc };
@@ -32,7 +35,7 @@ public partial class OverlayWindow : Window
         Loaded += (_, _) => _positioner.Reposition(this);
         SizeChanged += (_, _) => _positioner.Reposition(this);
         MouseLeftButtonDown += OnMouseLeftButtonDown;
-        MouseDoubleClick += (_, _) => _openSettings();
+        MouseDoubleClick += (_, _) => _openDetail();
 
         // Taskbar/tray widths change while apps come and go; track them cheaply.
         var repositionTimer = new System.Windows.Threading.DispatcherTimer
@@ -82,7 +85,7 @@ public partial class OverlayWindow : Window
         }
         else
         {
-            _openSettings();
+            _openDetail(); // Spec §5.5: left click opens the detail popup.
         }
     }
 

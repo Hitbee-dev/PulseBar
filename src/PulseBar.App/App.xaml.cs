@@ -71,6 +71,9 @@ public partial class App : Application
                 services.AddSingleton<OtelQueueIngestService>();
                 services.AddHostedService(sp => sp.GetRequiredService<OtelQueueIngestService>());
                 services.AddSingleton<FableUsageService>();
+                services.AddSingleton<UserActions>();
+                services.AddSingleton<WslOtelHelperService>();
+                services.AddHostedService(sp => sp.GetRequiredService<WslOtelHelperService>());
             })
             .Build();
 
@@ -86,6 +89,8 @@ public partial class App : Application
         var config = _host.Services.GetRequiredService<IConfigurationService>();
         config.Load();
         _host.Services.GetRequiredService<ILocalizationService>().SetLanguage(config.Current.Appearance.Language);
+        FileLoggerProvider.Cleanup(
+            paths.LogsDir, config.Current.Storage.LogRetentionDays, maxTotalBytes: 50 * 1024 * 1024);
 
         _host.Start();
 
@@ -107,26 +112,43 @@ public partial class App : Application
         Task.Run(() => repository.PruneOlderThan(
             DateTimeOffset.Now.AddDays(-config.Current.Storage.TokenEventRetentionDays)));
 
-        tray.OtelInstallRequested += async (_, _) =>
-        {
-            var resultKey = await providers.InstallOtelEnvAsync(
-                receiver.Endpoint, receiver.Secret, CancellationToken.None);
-            MessageBox.Show(loc[resultKey], loc["App_Name"], MessageBoxButton.OK, MessageBoxImage.Information);
-        };
+        var metricsSource = _host.Services.GetRequiredService<ISystemMetricsSource>();
+        var actions = _host.Services.GetRequiredService<UserActions>();
 
-        var overlayViewModel = new OverlayViewModel(
-            _host.Services.GetRequiredService<ISystemMetricsSource>(),
-            config,
-            loc,
-            providers,
-            fable);
+        DetailWindow? detailWindow = null;
+        void OpenDetail()
+        {
+            if (detailWindow is { IsLoaded: true })
+            {
+                detailWindow.Activate();
+                return;
+            }
+
+            detailWindow = new DetailWindow(
+                new DetailViewModel(metricsSource, providers, fable, loc), actions);
+            detailWindow.Closed += (_, _) => detailWindow = null;
+            detailWindow.Show();
+        }
+
+        var overlayViewModel = new OverlayViewModel(metricsSource, config, loc, providers, fable);
         var overlay = new OverlayWindow(
             overlayViewModel,
-            _host.Services.GetRequiredService<ILocalizationService>(),
+            loc,
             _host.Services.GetRequiredService<OverlayPositioner>(),
+            OpenDetail,
             tray.ShowSettingsWindow,
             tray.RequestRefresh);
         overlay.Show();
+
+        // Diagnostics: `PulseBar.exe --show-detail[-ai]` opens the detail popup immediately.
+        if (e.Args.Any(a => a.StartsWith("--show-detail")))
+        {
+            OpenDetail();
+            if (e.Args.Contains("--show-detail-ai"))
+            {
+                detailWindow?.SelectAiTab();
+            }
+        }
 
         logger.LogInformation("PulseBar started.");
     }

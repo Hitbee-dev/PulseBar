@@ -11,6 +11,18 @@ public interface IConfigurationService
     void Save();
     event EventHandler<AppConfig>? ConfigChanged;
     void Update(Action<AppConfig> mutate);
+
+    /// <summary>Replaces the whole config (settings import) and persists it.</summary>
+    void Replace(AppConfig config);
+
+    /// <summary>Parses exported-config JSON; null when invalid.</summary>
+    AppConfig? TryParse(string json);
+
+    /// <summary>Writes the current config to an arbitrary path (settings export).</summary>
+    void ExportTo(string path);
+
+    /// <summary>Loads, validates and applies a config file; false when invalid.</summary>
+    bool ImportFrom(string path);
 }
 
 /// <summary>
@@ -81,6 +93,58 @@ public sealed class ConfigurationService : IConfigurationService
             File.WriteAllText(tmp, json);
             File.Move(tmp, _paths.ConfigFile, overwrite: true);
         }
+    }
+
+    public void Replace(AppConfig config)
+    {
+        lock (_gate)
+        {
+            Current = config;
+            Save();
+        }
+
+        ConfigChanged?.Invoke(this, Current);
+    }
+
+    public AppConfig? TryParse(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<AppConfig>(json, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    public void ExportTo(string path)
+    {
+        lock (_gate)
+        {
+            File.WriteAllText(path, JsonSerializer.Serialize(Current, JsonOptions));
+        }
+    }
+
+    public bool ImportFrom(string path)
+    {
+        AppConfig? imported;
+        try
+        {
+            imported = TryParse(File.ReadAllText(path));
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+
+        if (imported is null)
+        {
+            return false;
+        }
+
+        Replace(imported);
+        return true;
     }
 
     public void Update(Action<AppConfig> mutate)

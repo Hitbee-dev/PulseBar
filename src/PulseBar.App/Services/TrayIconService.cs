@@ -20,6 +20,7 @@ public sealed class TrayIconService : IDisposable
     private readonly IConfigurationService _config;
     private readonly IStartupManager _startup;
     private readonly IAppPaths _paths;
+    private readonly UserActions _actions;
     private readonly ILogger<TrayIconService> _logger;
 
     private NotifyIcon? _icon;
@@ -30,20 +31,19 @@ public sealed class TrayIconService : IDisposable
         IConfigurationService config,
         IStartupManager startup,
         IAppPaths paths,
+        UserActions actions,
         ILogger<TrayIconService> logger)
     {
         _loc = loc;
         _config = config;
         _startup = startup;
         _paths = paths;
+        _actions = actions;
         _logger = logger;
     }
 
     /// <summary>Raised when the user asks for a manual provider refresh.</summary>
     public event EventHandler? RefreshRequested;
-
-    /// <summary>Raised when the user opts in to Claude OTel telemetry installation.</summary>
-    public event EventHandler? OtelInstallRequested;
 
     public void RequestRefresh() => RefreshRequested?.Invoke(this, EventArgs.Empty);
 
@@ -95,8 +95,11 @@ public sealed class TrayIconService : IDisposable
         startupItem.CheckedChanged += (_, _) => ToggleStartup(startupItem.Checked);
         menu.Items.Add(startupItem);
 
+        menu.Items.Add(_loc["Detail_CodexLogin"], null, async (_, _) => await _actions.CodexLoginAsync());
+        menu.Items.Add(_loc["Detail_OpenClaude"], null, (_, _) => _actions.OpenClaude());
         menu.Items.Add(
-            _loc["Tray_InstallOtel"], null, (_, _) => OtelInstallRequested?.Invoke(this, EventArgs.Empty));
+            _loc["Detail_InstallStatusline"], null, async (_, _) => await _actions.InstallStatuslineAsync());
+        menu.Items.Add(_loc["Tray_InstallOtel"], null, async (_, _) => await _actions.InstallOtelAsync());
         menu.Items.Add(_loc["Tray_OpenLogs"], null, (_, _) => OpenLogsFolder());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(_loc["Tray_Exit"], null, (_, _) => System.Windows.Application.Current.Shutdown());

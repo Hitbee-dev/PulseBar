@@ -36,6 +36,7 @@ public sealed class CodexProvider : IUsageProvider
     private Task? _runTask;
     private UsageSnapshot? _latest;
     private string? _accountKey;
+    private volatile JsonRpcClient? _activeRpc;
 
     public CodexProvider(ILogger<CodexProvider> logger, CodexProviderOptions? options = null)
     {
@@ -103,6 +104,38 @@ public sealed class CodexProvider : IUsageProvider
     {
         _refreshSignal.Release();
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Starts the official app-server ChatGPT browser login flow
+    /// (account/login/start, verified against codex-cli 0.144.4 schema).
+    /// Returns the URL the user must open, or null when no connection is up.
+    /// Completion arrives via the account/login/completed notification, which
+    /// triggers an immediate refresh.
+    /// </summary>
+    public async Task<string?> BeginLoginAsync(CancellationToken cancellationToken)
+    {
+        var rpc = _activeRpc;
+        if (rpc is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var result = await rpc.InvokeAsync(
+                "account/login/start",
+                new { type = "chatgpt" },
+                _options.RpcTimeout,
+                cancellationToken).ConfigureAwait(false);
+
+            return result.TryGetProperty("authUrl", out var authUrl) ? authUrl.GetString() : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Codex login start failed.");
+            return null;
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -176,9 +209,16 @@ public sealed class CodexProvider : IUsageProvider
         rpc.Disconnected += (_, _) => disconnected.TrySetResult();
         rpc.NotificationReceived += (_, notification) =>
         {
-            // Server-pushed rate limit changes: fetch a fresh snapshot right away.
-            if (notification.Method is "account/rateLimits/updated" or "account/updated")
+            // Server-pushed account/limit changes (including login completion):
+            // fetch a fresh snapshot right away.
+            if (notification.Method is "account/rateLimits/updated" or "account/updated"
+                or "account/login/completed")
             {
+                if (notification.Method == "account/login/completed")
+                {
+                    _logger.LogInformation("Codex login flow completed.");
+                }
+
                 _refreshSignal.Release();
             }
         };
@@ -190,13 +230,21 @@ public sealed class CodexProvider : IUsageProvider
             cancellationToken).ConfigureAwait(false);
         await rpc.NotifyAsync("initialized", null, cancellationToken).ConfigureAwait(false);
 
-        while (!cancellationToken.IsCancellationRequested && !disconnected.Task.IsCompleted)
+        _activeRpc = rpc;
+        try
         {
-            await PollOnceAsync(rpc, cancellationToken).ConfigureAwait(false);
+            while (!cancellationToken.IsCancellationRequested && !disconnected.Task.IsCompleted)
+            {
+                await PollOnceAsync(rpc, cancellationToken).ConfigureAwait(false);
 
-            var wait = Task.Delay(_options.RefreshInterval, cancellationToken);
-            var refresh = _refreshSignal.WaitAsync(cancellationToken);
-            await Task.WhenAny(wait, refresh, disconnected.Task).ConfigureAwait(false);
+                var wait = Task.Delay(_options.RefreshInterval, cancellationToken);
+                var refresh = _refreshSignal.WaitAsync(cancellationToken);
+                await Task.WhenAny(wait, refresh, disconnected.Task).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            _activeRpc = null;
         }
 
         cancellationToken.ThrowIfCancellationRequested();

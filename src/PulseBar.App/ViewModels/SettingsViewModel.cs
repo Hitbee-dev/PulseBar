@@ -56,6 +56,22 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         Loc.SetLanguage(SelectedLanguage);
     }
 
+    public void Export(string path) => _config.ExportTo(path);
+
+    /// <summary>Imports and applies a config file; refreshes the dialog fields on success.</summary>
+    public bool Import(string path)
+    {
+        if (!_config.ImportFrom(path))
+        {
+            return false;
+        }
+
+        Loc.SetLanguage(_config.Current.Appearance.Language);
+        SelectedLanguage = _config.Current.Appearance.Language;
+        SelectedLayout = _config.Current.Appearance.Layout;
+        return true;
+    }
+
     private void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
         if (!EqualityComparer<T>.Default.Equals(field, value))

@@ -29,6 +29,33 @@ public static class LocalizedStrings
         ["Tooltip_SevenDays"] = "Last 7 days",
         ["Tooltip_Resets"] = "resets {0}",
 
+        ["Detail_Title"] = "PulseBar Details",
+        ["Detail_SystemTab"] = "System",
+        ["Detail_AiTab"] = "AI Usage",
+        ["Detail_CpuHistory"] = "CPU — last 60 s",
+        ["Detail_CodexLogin"] = "Codex login",
+        ["Detail_OpenClaude"] = "Open Claude Code",
+        ["Detail_InstallStatusline"] = "Connect Claude usage",
+        ["Detail_Account"] = "Account",
+        ["Detail_Plan"] = "Plan",
+        ["Detail_Credits"] = "Credits",
+
+        ["Statusline_WrapConfirm"] =
+            "An existing statusline was found. Wrap it with the PulseBar bridge? " +
+            "Your current HUD keeps working (passthrough) and settings.json is backed up first.",
+        ["Statusline_Installed"] = "Claude usage connected. Restart Claude Code to apply.",
+        ["Statusline_AlreadyInstalled"] = "Claude usage is already connected.",
+        ["Statusline_Failed"] = "Install failed — nothing was modified. See logs.",
+        ["Codex_LoginOpened"] = "Complete the Codex login in your browser.",
+        ["Codex_LoginUnavailable"] = "No Codex connection yet; cannot start login.",
+        ["Claude_OpenFailed"] = "Could not launch Claude Code.",
+
+        ["Settings_Export"] = "Export settings",
+        ["Settings_Import"] = "Import settings",
+        ["Settings_ExportDone"] = "Settings exported.",
+        ["Settings_ImportDone"] = "Settings imported and applied.",
+        ["Settings_ImportFailed"] = "Import failed: the file is not a valid PulseBar config.",
+
         ["Settings_Title"] = "PulseBar Settings",
         ["Settings_General"] = "General",
         ["Settings_Language"] = "Language",
@@ -108,6 +135,33 @@ public static class LocalizedStrings
         ["Tooltip_Today"] = "오늘",
         ["Tooltip_SevenDays"] = "최근 7일",
         ["Tooltip_Resets"] = "{0} 리셋",
+
+        ["Detail_Title"] = "PulseBar 상세",
+        ["Detail_SystemTab"] = "시스템",
+        ["Detail_AiTab"] = "AI 사용량",
+        ["Detail_CpuHistory"] = "CPU — 최근 60초",
+        ["Detail_CodexLogin"] = "Codex 로그인",
+        ["Detail_OpenClaude"] = "Claude Code 열기",
+        ["Detail_InstallStatusline"] = "Claude 사용량 연동",
+        ["Detail_Account"] = "계정",
+        ["Detail_Plan"] = "플랜",
+        ["Detail_Credits"] = "크레딧",
+
+        ["Statusline_WrapConfirm"] =
+            "기존 statusline이 발견되었습니다. PulseBar 래퍼로 감쌀까요? " +
+            "기존 HUD는 passthrough로 계속 동작하며, settings.json은 먼저 백업됩니다.",
+        ["Statusline_Installed"] = "Claude 사용량 연동이 설치되었습니다. Claude Code 재시작 후 적용됩니다.",
+        ["Statusline_AlreadyInstalled"] = "이미 연동되어 있습니다.",
+        ["Statusline_Failed"] = "설치에 실패했습니다 — 아무것도 변경되지 않았습니다. 로그를 확인하세요.",
+        ["Codex_LoginOpened"] = "브라우저에서 Codex 로그인을 완료하세요.",
+        ["Codex_LoginUnavailable"] = "Codex 연결이 아직 없어 로그인을 시작할 수 없습니다.",
+        ["Claude_OpenFailed"] = "Claude Code를 실행할 수 없습니다.",
+
+        ["Settings_Export"] = "설정 내보내기",
+        ["Settings_Import"] = "설정 가져오기",
+        ["Settings_ExportDone"] = "설정을 내보냈습니다.",
+        ["Settings_ImportDone"] = "설정을 가져와 적용했습니다.",
+        ["Settings_ImportFailed"] = "가져오기 실패: 올바른 PulseBar 설정 파일이 아닙니다.",
 
         ["Settings_Title"] = "PulseBar 설정",
         ["Settings_General"] = "일반",

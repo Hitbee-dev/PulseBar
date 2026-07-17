@@ -84,6 +84,82 @@ public sealed class ClaudeSettingsInstallerTests : IDisposable
         Assert.Equal("{ broken json !!", File.ReadAllText(_settingsPath));
     }
 
+    private const string ForeignHudCommand =
+        "bash -c 'cols=$(stty size </dev/tty | awk '\"'\"'{print $2}'\"'\"'); exec node hud.js'";
+
+    [Fact]
+    public void InstallWrapped_ForeignStatusline_WrapsAndPreservesOriginalVerbatim()
+    {
+        File.WriteAllText(
+            _settingsPath,
+            System.Text.Json.Nodes.JsonNode.Parse(
+                $$"""{"statusLine":{"type":"command","command":{{System.Text.Json.JsonSerializer.Serialize(ForeignHudCommand)}},"padding":1},"model":"x"}""")!
+                .ToJsonString());
+
+        var result = ClaudeSettingsInstaller.InstallWrapped(
+            _settingsPath, @"C:\Apps\PulseBar.Bridge.exe", @"C:\Data\claude-status.json",
+            forWsl: true, _backupDir);
+
+        Assert.Equal(StatuslineInstallResult.Installed, result);
+
+        // Original command preserved verbatim in the sidecar (nasty quoting untouched).
+        var sidecar = Path.Combine(_dir, "pulsebar-statusline-original.sh");
+        Assert.Equal(ForeignHudCommand + "\n", File.ReadAllText(sidecar));
+
+        var root = JsonNode.Parse(File.ReadAllText(_settingsPath))!;
+        var command = root["statusLine"]!["command"]!.GetValue<string>();
+        Assert.Contains("/mnt/c/Apps/PulseBar.Bridge.exe", command);
+        Assert.Contains("pulsebar-statusline-original.sh", command);
+        Assert.Contains("input=$(cat)", command);
+        Assert.Equal(1, root["statusLine"]!["padding"]!.GetValue<int>());
+        Assert.Equal("x", root["model"]!.GetValue<string>());
+        Assert.Single(Directory.GetFiles(_backupDir));
+    }
+
+    [Fact]
+    public void InstallWrapped_BridgeAlreadyPresent_ReportsAlreadyInstalled()
+    {
+        File.WriteAllText(
+            _settingsPath,
+            """{"statusLine":{"type":"command","command":"x | PulseBar.Bridge.exe claude-statusline"}}""");
+
+        var result = ClaudeSettingsInstaller.InstallWrapped(
+            _settingsPath, @"C:\Apps\PulseBar.Bridge.exe", @"C:\Data\out.json", forWsl: true, _backupDir);
+
+        Assert.Equal(StatuslineInstallResult.AlreadyInstalled, result);
+    }
+
+    [Fact]
+    public void InstallWrapped_NoStatusline_FallsBackToPlainInstall()
+    {
+        File.WriteAllText(_settingsPath, """{"model":"x"}""");
+
+        var result = ClaudeSettingsInstaller.InstallWrapped(
+            _settingsPath, @"C:\Apps\PulseBar.Bridge.exe", @"C:\Data\out.json", forWsl: false, _backupDir);
+
+        Assert.Equal(StatuslineInstallResult.Installed, result);
+        var root = JsonNode.Parse(File.ReadAllText(_settingsPath))!;
+        Assert.DoesNotContain("passthrough", root["statusLine"]!["command"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void InstallWrapped_WindowsForeignStatusline_UsesCmdSidecarWithPassthrough()
+    {
+        File.WriteAllText(
+            _settingsPath,
+            """{"statusLine":{"type":"command","command":"node C:/Users/x/.claude/hud/omc-hud.mjs"}}""");
+
+        var result = ClaudeSettingsInstaller.InstallWrapped(
+            _settingsPath, @"C:\Apps\PulseBar.Bridge.exe", @"C:\Data\out.json", forWsl: false, _backupDir);
+
+        Assert.Equal(StatuslineInstallResult.Installed, result);
+        var sidecar = Path.Combine(_dir, "pulsebar-statusline-original.cmd");
+        Assert.Contains("node C:/Users/x/.claude/hud/omc-hud.mjs", File.ReadAllText(sidecar));
+        var command = JsonNode.Parse(File.ReadAllText(_settingsPath))!["statusLine"]!["command"]!.GetValue<string>();
+        Assert.Contains("--passthrough", command);
+        Assert.Contains("pulsebar-statusline-original.cmd", command);
+    }
+
     [Theory]
     [InlineData(@"C:\Users\chan\AppData\Local\PulseBar\bridge.exe", "/mnt/c/Users/chan/AppData/Local/PulseBar/bridge.exe")]
     [InlineData(@"D:\tools\b.exe", "/mnt/d/tools/b.exe")]

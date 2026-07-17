@@ -27,6 +27,19 @@ public class UnitFormatterTests
     }
 
     [Theory]
+    [InlineData(0, "0")]
+    [InlineData(950, "950")]
+    [InlineData(640_000, "640K")]
+    [InlineData(1_820_000, "1.82M")]
+    [InlineData(12_400_000, "12.4M")]
+    [InlineData(5_451_211_518, "5.45B")]
+    [InlineData(-3, "0")]
+    public void CountCompact_FormatsDecimalTokenCounts(long count, string expected)
+    {
+        Assert.Equal(expected, UnitFormatter.CountCompact(count));
+    }
+
+    [Theory]
     [InlineData(14.3, "14")]
     [InlineData(99.6, "100")]
     [InlineData(0.0, "0")]

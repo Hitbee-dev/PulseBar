@@ -81,6 +81,97 @@ public static class ClaudeSettingsInstaller
     }
 
     /// <summary>
+    /// Wraps an existing foreign statusLine so both PulseBar and the original HUD
+    /// receive the statusline JSON. Requires explicit user consent (never called
+    /// automatically). The original command is preserved verbatim in a sidecar
+    /// script next to settings.json — this avoids any quote-escaping of the
+    /// original command inside the wrapper string.
+    /// </summary>
+    public static StatuslineInstallResult InstallWrapped(
+        string settingsPath,
+        string bridgeExePath,
+        string outputPath,
+        bool forWsl,
+        string backupDir)
+    {
+        if (!File.Exists(settingsPath))
+        {
+            return Install(settingsPath, BuildBridgeCommand(bridgeExePath, outputPath, forWsl), backupDir);
+        }
+
+        JsonObject root;
+        try
+        {
+            root = JsonNode.Parse(File.ReadAllText(settingsPath)) as JsonObject
+                ?? throw new JsonException("settings root is not an object");
+        }
+        catch (JsonException)
+        {
+            return StatuslineInstallResult.SettingsUnreadable;
+        }
+
+        if (root.TryGetPropertyValue("statusLine", out var existing) && existing is not null)
+        {
+            var existingCommand = existing["command"]?.GetValue<string>() ?? "";
+            if (existingCommand.Contains(BridgeMarker, StringComparison.OrdinalIgnoreCase))
+            {
+                return StatuslineInstallResult.AlreadyInstalled;
+            }
+
+            Backup(settingsPath, backupDir);
+
+            var settingsDir = Path.GetDirectoryName(settingsPath)!;
+            string wrapperCommand;
+            if (forWsl)
+            {
+                var scriptPath = Path.Combine(settingsDir, "pulsebar-statusline-original.sh");
+                File.WriteAllText(scriptPath, existingCommand + "\n");
+                wrapperCommand = BuildWslWrapperCommand(bridgeExePath, outputPath);
+            }
+            else
+            {
+                var scriptPath = Path.Combine(settingsDir, "pulsebar-statusline-original.cmd");
+                File.WriteAllText(scriptPath, "@echo off\r\n" + existingCommand + "\r\n");
+                wrapperCommand =
+                    $"\"{bridgeExePath}\" claude-statusline --output \"{outputPath}\"" +
+                    $" --passthrough \"\\\"{scriptPath}\\\"\"";
+            }
+
+            var padding = existing["padding"];
+            var statusLine = new JsonObject
+            {
+                ["type"] = "command",
+                ["command"] = wrapperCommand,
+            };
+            if (padding is not null)
+            {
+                statusLine["padding"] = padding.DeepClone();
+            }
+
+            root["statusLine"] = statusLine;
+            var json = root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+            var tmp = settingsPath + ".pulsebar.tmp";
+            File.WriteAllText(tmp, json);
+            File.Move(tmp, settingsPath, overwrite: true);
+            return StatuslineInstallResult.Installed;
+        }
+
+        return Install(settingsPath, BuildBridgeCommand(bridgeExePath, outputPath, forWsl), backupDir);
+    }
+
+    /// <summary>
+    /// WSL wrapper: capture stdin once, feed it to the (Windows) bridge via interop,
+    /// then to the preserved original command; the original's stdout is the statusline.
+    /// </summary>
+    private static string BuildWslWrapperCommand(string bridgeExePath, string outputPath)
+    {
+        var wslExe = ToWslPath(bridgeExePath);
+        return "input=$(cat); " +
+               $"printf %s \"$input\" | '{wslExe}' claude-statusline --output '{outputPath}' >/dev/null 2>&1; " +
+               "printf %s \"$input\" | sh \"$HOME/.claude/pulsebar-statusline-original.sh\"";
+    }
+
+    /// <summary>
     /// Builds the statusLine command string. For WSL profiles the Windows bridge
     /// exe is invoked through interop (/mnt/c/...), while --output stays a Windows
     /// path because the bridge itself is a Windows process.
