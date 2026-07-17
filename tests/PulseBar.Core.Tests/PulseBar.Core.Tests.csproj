@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\PulseBar.Core\PulseBar.Core.csproj" />
+    <ProjectReference Include="..\..\src\PulseBar.Storage\PulseBar.Storage.csproj" />
   </ItemGroup>
 
 </Project>

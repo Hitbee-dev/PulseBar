@@ -17,16 +17,20 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private string _systemLine = "…";
     private string _providerLine = "";
 
+    private readonly Services.FableUsageService? _fable;
     private IReadOnlyList<UsageSnapshot> _snapshots = [];
+    private string _tooltipText = "";
 
     public OverlayViewModel(
         ISystemMetricsSource metrics,
         IConfigurationService config,
         ILocalizationService loc,
-        Services.ProviderManager providers)
+        Services.ProviderManager providers,
+        Services.FableUsageService? fable = null)
     {
         _config = config;
         _loc = loc;
+        _fable = fable;
         _dispatcher = Dispatcher.CurrentDispatcher;
 
         _providerLine = loc["Common_NotConnected"];
@@ -34,13 +38,83 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         providers.SnapshotsUpdated += (_, snapshots) => _dispatcher.BeginInvoke(() =>
         {
             _snapshots = snapshots;
-            ProviderLine = CompactBarFormatter.ProviderLine(_snapshots, _loc.T);
+            RefreshProviderTexts();
         });
-        config.ConfigChanged += (_, _) => _dispatcher.BeginInvoke(RaiseAppearanceChanged);
-        loc.PropertyChanged += (_, _) => _dispatcher.BeginInvoke(() =>
+        if (fable is not null)
         {
-            ProviderLine = CompactBarFormatter.ProviderLine(_snapshots, _loc.T);
-        });
+            fable.Updated += (_, _) => _dispatcher.BeginInvoke(RefreshProviderTexts);
+        }
+
+        config.ConfigChanged += (_, _) => _dispatcher.BeginInvoke(RaiseAppearanceChanged);
+        loc.PropertyChanged += (_, _) => _dispatcher.BeginInvoke(RefreshProviderTexts);
+    }
+
+    private void RefreshProviderTexts()
+    {
+        ProviderLine = CompactBarFormatter.ProviderLine(_snapshots, _loc.T);
+        TooltipText = BuildTooltip();
+    }
+
+    public string TooltipText
+    {
+        get => _tooltipText;
+        private set
+        {
+            if (_tooltipText != value)
+            {
+                _tooltipText = value;
+                Raise(nameof(TooltipText));
+            }
+        }
+    }
+
+    private string BuildTooltip()
+    {
+        var lines = new List<string>();
+
+        foreach (var snapshot in _snapshots)
+        {
+            var name = snapshot.ProviderId switch
+            {
+                "codex" => "Codex",
+                "claude" => "Claude",
+                _ => snapshot.ProviderId,
+            };
+
+            if (snapshot.Freshness == DataFreshness.AuthenticationRequired)
+            {
+                lines.Add($"{name}: {_loc["Freshness_AuthenticationRequired"]}");
+                continue;
+            }
+
+            foreach (var window in snapshot.Windows)
+            {
+                var reset = window.ResetsAt is { } resetsAt
+                    ? " · " + _loc.T("Tooltip_Resets", resetsAt.ToLocalTime().ToString("MM-dd HH:mm"))
+                    : "";
+                var stale = window.Freshness == DataFreshness.Stale ? $" ({_loc["Freshness_Stale"]})" : "";
+                lines.Add($"{name} {window.DisplayName}: {UnitFormatter.Percent(window.UsedPercent)}%{reset}{stale}");
+            }
+
+            if (snapshot.Plan is not null)
+            {
+                lines.Add($"{name} plan: {snapshot.Plan}");
+            }
+        }
+
+        if (_fable is not null)
+        {
+            var usage = _fable.Current;
+            if (usage.Today.TotalTokens > 0 || usage.SevenDays.TotalTokens > 0)
+            {
+                lines.Add(_loc["Claude_FableTokens"]);
+                lines.Add(
+                    $"  {_loc["Tooltip_Today"]} {UnitFormatter.CountCompact(usage.Today.TotalTokens)}" +
+                    $" · {_loc["Tooltip_SevenDays"]} {UnitFormatter.CountCompact(usage.SevenDays.TotalTokens)}");
+            }
+        }
+
+        return lines.Count == 0 ? _loc["Common_NotConnected"] : string.Join(Environment.NewLine, lines);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

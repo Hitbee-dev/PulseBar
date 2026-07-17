@@ -19,6 +19,17 @@ public static class Program
                 return ClaudeStatuslineCommand.Run(args[1..], Console.In, Console.Out, Console.Error);
             }
 
+            if (args.Length > 0 && args[0] == "otel-receiver")
+            {
+                using var cts = new CancellationTokenSource();
+                Console.CancelKeyPress += (_, e) =>
+                {
+                    e.Cancel = true;
+                    cts.Cancel();
+                };
+                return OtelReceiverCommand.Run(args[1..], Console.In, Console.Error, cts.Token);
+            }
+
             Console.Error.WriteLine("PulseBar.Bridge: unknown or missing command.");
             return 0;
         }

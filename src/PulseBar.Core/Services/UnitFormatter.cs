@@ -30,6 +30,26 @@ public static class UnitFormatter
         return FormatScaled(value) + " " + unit;
     }
 
+    /// <summary>Decimal count formatting for tokens: 1_820_000 → "1.82M"; 640_000 → "640K".</summary>
+    public static string CountCompact(long count)
+    {
+        if (count < 0)
+        {
+            return "0";
+        }
+
+        return count switch
+        {
+            >= 1_000_000_000 => Trim(count / 1_000_000_000.0) + "B",
+            >= 1_000_000 => Trim(count / 1_000_000.0) + "M",
+            >= 1_000 => Trim(count / 1_000.0) + "K",
+            _ => count.ToString(CultureInfo.InvariantCulture),
+        };
+
+        static string Trim(double value)
+            => value.ToString(value < 10 ? "0.##" : value < 100 ? "0.#" : "0", CultureInfo.InvariantCulture);
+    }
+
     /// <summary>Percent without the sign: 14.3 → "14"; null → "—".</summary>
     public static string Percent(double? percent)
         => percent is null

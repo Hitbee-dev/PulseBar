@@ -78,6 +78,12 @@ public sealed class ThresholdsConfig
     public double CriticalPercent { get; set; } = 95;
 }
 
+public sealed class ClaudeConfig
+{
+    /// <summary>Model-id matcher for the local Fable token aggregation; '*' suffix = prefix match.</summary>
+    public string FableModelMatcher { get; set; } = "claude-fable-5";
+}
+
 public sealed class StorageConfig
 {
     public int TokenEventRetentionDays { get; set; } = 30;
@@ -92,6 +98,7 @@ public sealed class AppConfig
     public MetricsConfig Metrics { get; set; } = new();
     public List<ProviderProfileConfig> Providers { get; set; } = [];
     public ThresholdsConfig Thresholds { get; set; } = new();
+    public ClaudeConfig Claude { get; set; } = new();
     public StorageConfig Storage { get; set; } = new();
 
     [JsonIgnore]

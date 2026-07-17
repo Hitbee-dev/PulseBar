@@ -6,6 +6,7 @@ using PulseBar.Core.Configuration;
 using PulseBar.Core.Interfaces;
 using PulseBar.Core.Models;
 using PulseBar.Providers.Claude;
+using PulseBar.Providers.Claude.OpenTelemetry;
 using PulseBar.Providers.Claude.Statusline;
 using PulseBar.Providers.Codex;
 using PulseBar.Windows.Environments;
@@ -203,26 +204,11 @@ public sealed class ProviderManager : BackgroundService
             }
 
             var isWsl = profile.Environment == ExecutionEnvironmentType.Wsl;
-            string settingsPath;
-            if (isWsl)
+            var settingsPath = await ResolveClaudeSettingsPathAsync(profile, cancellationToken).ConfigureAwait(false);
+            if (settingsPath is null)
             {
-                var home = profile.LinuxHome
-                    ?? await CliDetector.GetWslHomeAsync(profile.WslDistribution, cancellationToken).ConfigureAwait(false);
-                if (home is null)
-                {
-                    _logger.LogWarning("Could not resolve WSL home directory; skipping statusline install.");
-                    return;
-                }
-
-                profile.LinuxHome = home;
-                _config.Update(_ => { }); // Persist the resolved home.
-                settingsPath = $@"\\wsl.localhost\{profile.WslDistribution}{home.Replace('/', '\\')}\.claude\settings.json";
-            }
-            else
-            {
-                settingsPath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    ".claude", "settings.json");
+                _logger.LogWarning("Could not resolve Claude settings path; skipping statusline install.");
+                return;
             }
 
             var command = ClaudeSettingsInstaller.BuildBridgeCommand(
@@ -253,5 +239,70 @@ public sealed class ProviderManager : BackgroundService
         {
             _logger.LogWarning(ex, "Claude statusline installation failed.");
         }
+    }
+
+    /// <summary>
+    /// Opt-in Claude OTel telemetry setup (explicit user action from the tray menu).
+    /// Returns a localization key describing the outcome.
+    /// </summary>
+    public async Task<string> InstallOtelEnvAsync(
+        string? receiverEndpoint,
+        string? receiverSecret,
+        CancellationToken cancellationToken)
+    {
+        if (receiverEndpoint is null || receiverSecret is null)
+        {
+            return "Otel_ReceiverDown";
+        }
+
+        var profile = _config.Current.Providers.FirstOrDefault(p => p.ProviderId == "claude");
+        if (profile is null)
+        {
+            return "Otel_NoProfile";
+        }
+
+        var settingsPath = await ResolveClaudeSettingsPathAsync(profile, cancellationToken).ConfigureAwait(false);
+        if (settingsPath is null)
+        {
+            return "Otel_Unreadable";
+        }
+
+        var result = OtelEnvInstaller.Install(settingsPath, receiverEndpoint, receiverSecret, _paths.BackupsDir);
+        _logger.LogInformation("Claude OTel env install: {Result} ({Path})", result, settingsPath);
+
+        return result switch
+        {
+            OtelInstallResult.Installed => "Otel_Installed",
+            OtelInstallResult.AlreadyInstalled => "Otel_AlreadyInstalled",
+            OtelInstallResult.ConflictingEnv => "Otel_Conflict",
+            _ => "Otel_Unreadable",
+        };
+    }
+
+    private async Task<string?> ResolveClaudeSettingsPathAsync(
+        ProviderProfileConfig profile,
+        CancellationToken cancellationToken)
+    {
+        if (profile.Environment != ExecutionEnvironmentType.Wsl)
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".claude", "settings.json");
+        }
+
+        var home = profile.LinuxHome
+            ?? await CliDetector.GetWslHomeAsync(profile.WslDistribution, cancellationToken).ConfigureAwait(false);
+        if (home is null)
+        {
+            return null;
+        }
+
+        if (profile.LinuxHome != home)
+        {
+            profile.LinuxHome = home;
+            _config.Update(_ => { }); // Persist the resolved home.
+        }
+
+        return $@"\\wsl.localhost\{profile.WslDistribution}{home.Replace('/', '\\')}\.claude\settings.json";
     }
 }

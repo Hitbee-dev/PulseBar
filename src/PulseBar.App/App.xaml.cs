@@ -9,6 +9,7 @@ using PulseBar.Core.Configuration;
 using PulseBar.Core.Interfaces;
 using PulseBar.Core.Localization;
 using PulseBar.Core.Logging;
+using PulseBar.Storage.Sqlite;
 using PulseBar.Windows.Metrics;
 using PulseBar.Windows.Startup;
 
@@ -59,6 +60,17 @@ public partial class App : Application
                 services.AddHostedService(sp => sp.GetRequiredService<SystemMetricsCollector>());
                 services.AddSingleton<ProviderManager>();
                 services.AddHostedService(sp => sp.GetRequiredService<ProviderManager>());
+                services.AddSingleton<ITokenUsageRepository>(_ =>
+                {
+                    var repository = new SqliteTokenUsageRepository(paths.DatabaseFile);
+                    repository.Initialize();
+                    return repository;
+                });
+                services.AddSingleton<OtelReceiverService>();
+                services.AddHostedService(sp => sp.GetRequiredService<OtelReceiverService>());
+                services.AddSingleton<OtelQueueIngestService>();
+                services.AddHostedService(sp => sp.GetRequiredService<OtelQueueIngestService>());
+                services.AddSingleton<FableUsageService>();
             })
             .Build();
 
@@ -83,11 +95,31 @@ public partial class App : Application
         var providers = _host.Services.GetRequiredService<ProviderManager>();
         tray.RefreshRequested += (_, _) => providers.RefreshAll();
 
+        var loc = _host.Services.GetRequiredService<ILocalizationService>();
+        var receiver = _host.Services.GetRequiredService<OtelReceiverService>();
+        var queueIngest = _host.Services.GetRequiredService<OtelQueueIngestService>();
+        var fable = _host.Services.GetRequiredService<FableUsageService>();
+        receiver.EventsIngested += (_, _) => fable.Refresh();
+        queueIngest.EventsIngested += (_, _) => fable.Refresh();
+        Task.Run(fable.Refresh);
+
+        var repository = _host.Services.GetRequiredService<ITokenUsageRepository>();
+        Task.Run(() => repository.PruneOlderThan(
+            DateTimeOffset.Now.AddDays(-config.Current.Storage.TokenEventRetentionDays)));
+
+        tray.OtelInstallRequested += async (_, _) =>
+        {
+            var resultKey = await providers.InstallOtelEnvAsync(
+                receiver.Endpoint, receiver.Secret, CancellationToken.None);
+            MessageBox.Show(loc[resultKey], loc["App_Name"], MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+
         var overlayViewModel = new OverlayViewModel(
             _host.Services.GetRequiredService<ISystemMetricsSource>(),
             config,
-            _host.Services.GetRequiredService<ILocalizationService>(),
-            providers);
+            loc,
+            providers,
+            fable);
         var overlay = new OverlayWindow(
             overlayViewModel,
             _host.Services.GetRequiredService<ILocalizationService>(),

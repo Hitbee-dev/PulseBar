@@ -42,6 +42,9 @@ public sealed class TrayIconService : IDisposable
     /// <summary>Raised when the user asks for a manual provider refresh.</summary>
     public event EventHandler? RefreshRequested;
 
+    /// <summary>Raised when the user opts in to Claude OTel telemetry installation.</summary>
+    public event EventHandler? OtelInstallRequested;
+
     public void RequestRefresh() => RefreshRequested?.Invoke(this, EventArgs.Empty);
 
     public void ShowSettingsWindow() => ShowSettings();
@@ -92,6 +95,8 @@ public sealed class TrayIconService : IDisposable
         startupItem.CheckedChanged += (_, _) => ToggleStartup(startupItem.Checked);
         menu.Items.Add(startupItem);
 
+        menu.Items.Add(
+            _loc["Tray_InstallOtel"], null, (_, _) => OtelInstallRequested?.Invoke(this, EventArgs.Empty));
         menu.Items.Add(_loc["Tray_OpenLogs"], null, (_, _) => OpenLogsFolder());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(_loc["Tray_Exit"], null, (_, _) => System.Windows.Application.Current.Shutdown());

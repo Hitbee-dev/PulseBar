@@ -24,7 +24,9 @@
     <Border Background="#B31A1A1A"
             CornerRadius="4"
             Padding="8,1"
-            Opacity="{Binding Bar.BarOpacity}">
+            Opacity="{Binding Bar.BarOpacity}"
+            ToolTip="{Binding Bar.TooltipText}"
+            ToolTipService.ShowDuration="30000">
         <StackPanel>
             <TextBlock Text="{Binding Bar.SystemLine}"
                        FontFamily="{Binding Bar.FontFamily}"

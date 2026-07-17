@@ -16,6 +16,18 @@ public static class LocalizedStrings
         ["Tray_StartupRegister"] = "Start with Windows",
         ["Tray_OpenLogs"] = "Open log folder",
         ["Tray_Exit"] = "Exit",
+        ["Tray_InstallOtel"] = "Enable Fable token telemetry (OTel)",
+
+        ["Otel_Installed"] = "Claude telemetry configured. Restart Claude Code to apply.",
+        ["Otel_AlreadyInstalled"] = "Telemetry is already configured.",
+        ["Otel_Conflict"] = "Existing OTel settings found; nothing was changed. Manual merge required.",
+        ["Otel_Unreadable"] = "Could not parse Claude settings.json; nothing was changed.",
+        ["Otel_NoProfile"] = "No Claude profile configured.",
+        ["Otel_ReceiverDown"] = "The telemetry receiver has not started yet.",
+
+        ["Tooltip_Today"] = "Today",
+        ["Tooltip_SevenDays"] = "Last 7 days",
+        ["Tooltip_Resets"] = "resets {0}",
 
         ["Settings_Title"] = "PulseBar Settings",
         ["Settings_General"] = "General",
@@ -84,6 +96,18 @@ public static class LocalizedStrings
         ["Tray_StartupRegister"] = "Windows 시작 시 실행",
         ["Tray_OpenLogs"] = "로그 폴더 열기",
         ["Tray_Exit"] = "종료",
+        ["Tray_InstallOtel"] = "Fable 토큰 수집 연동 (OTel)",
+
+        ["Otel_Installed"] = "Claude 텔레메트리 연동이 설치되었습니다. Claude Code 재시작 후 적용됩니다.",
+        ["Otel_AlreadyInstalled"] = "이미 연동되어 있습니다.",
+        ["Otel_Conflict"] = "기존 OTel 설정이 있어 변경하지 않았습니다. 수동 병합이 필요합니다.",
+        ["Otel_Unreadable"] = "Claude settings.json을 읽을 수 없어 변경하지 않았습니다.",
+        ["Otel_NoProfile"] = "Claude 프로필이 없습니다.",
+        ["Otel_ReceiverDown"] = "수신기가 아직 시작되지 않았습니다.",
+
+        ["Tooltip_Today"] = "오늘",
+        ["Tooltip_SevenDays"] = "최근 7일",
+        ["Tooltip_Resets"] = "{0} 리셋",
 
         ["Settings_Title"] = "PulseBar 설정",
         ["Settings_General"] = "일반",
