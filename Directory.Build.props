@@ -8,6 +8,6 @@
     <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
     <Company>PulseBar</Company>
     <Product>PulseBar</Product>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
   </PropertyGroup>
 </Project>

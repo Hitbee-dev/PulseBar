@@ -3,7 +3,7 @@
 ; Build with: packaging\installer\build-installer.ps1 (stages the publish output first).
 
 #define MyAppName "PulseBar"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.1.1"
 #define MyAppExeName "PulseBar.exe"
 #ifndef StageDir
   #define StageDir "..\..\artifacts\portable\PulseBar"
