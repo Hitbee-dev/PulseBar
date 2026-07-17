@@ -15,8 +15,13 @@ $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $stage = Join-Path $repoRoot "artifacts\portable\PulseBar"
 $zipPath = Join-Path $repoRoot "artifacts\PulseBar-portable-win-x64.zip"
 
-if (Test-Path (Join-Path $repoRoot "artifacts")) {
-    Remove-Item (Join-Path $repoRoot "artifacts") -Recurse -Force
+# Clean only what this script owns — users may keep an extracted install
+# elsewhere under artifacts/ (e.g. artifacts\PulseBar).
+if (Test-Path $stage) {
+    Remove-Item $stage -Recurse -Force
+}
+if (Test-Path $zipPath) {
+    Remove-Item $zipPath -Force
 }
 
 Write-Host "Publishing PulseBar.App (win-x64, self-contained)..."
