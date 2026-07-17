@@ -57,6 +57,8 @@ public partial class App : Application
                 services.AddSingleton<SystemMetricsCollector>();
                 services.AddSingleton<ISystemMetricsSource>(sp => sp.GetRequiredService<SystemMetricsCollector>());
                 services.AddHostedService(sp => sp.GetRequiredService<SystemMetricsCollector>());
+                services.AddSingleton<ProviderManager>();
+                services.AddHostedService(sp => sp.GetRequiredService<ProviderManager>());
             })
             .Build();
 
@@ -78,10 +80,14 @@ public partial class App : Application
         var tray = _host.Services.GetRequiredService<TrayIconService>();
         tray.Initialize();
 
+        var providers = _host.Services.GetRequiredService<ProviderManager>();
+        tray.RefreshRequested += (_, _) => providers.RefreshAll();
+
         var overlayViewModel = new OverlayViewModel(
             _host.Services.GetRequiredService<ISystemMetricsSource>(),
             config,
-            _host.Services.GetRequiredService<ILocalizationService>());
+            _host.Services.GetRequiredService<ILocalizationService>(),
+            providers);
         var overlay = new OverlayWindow(
             overlayViewModel,
             _host.Services.GetRequiredService<ILocalizationService>(),

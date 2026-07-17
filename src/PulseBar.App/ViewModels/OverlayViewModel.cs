@@ -17,10 +17,13 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private string _systemLine = "…";
     private string _providerLine = "";
 
+    private IReadOnlyList<UsageSnapshot> _snapshots = [];
+
     public OverlayViewModel(
         ISystemMetricsSource metrics,
         IConfigurationService config,
-        ILocalizationService loc)
+        ILocalizationService loc,
+        Services.ProviderManager providers)
     {
         _config = config;
         _loc = loc;
@@ -28,10 +31,15 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
 
         _providerLine = loc["Common_NotConnected"];
         metrics.MetricsUpdated += OnMetricsUpdated;
+        providers.SnapshotsUpdated += (_, snapshots) => _dispatcher.BeginInvoke(() =>
+        {
+            _snapshots = snapshots;
+            ProviderLine = CompactBarFormatter.ProviderLine(_snapshots, _loc.T);
+        });
         config.ConfigChanged += (_, _) => _dispatcher.BeginInvoke(RaiseAppearanceChanged);
         loc.PropertyChanged += (_, _) => _dispatcher.BeginInvoke(() =>
         {
-            ProviderLine = _loc["Common_NotConnected"];
+            ProviderLine = CompactBarFormatter.ProviderLine(_snapshots, _loc.T);
         });
     }
 

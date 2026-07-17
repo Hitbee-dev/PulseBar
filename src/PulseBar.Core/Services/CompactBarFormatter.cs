@@ -50,6 +50,76 @@ public static class CompactBarFormatter
         return string.Join(compact ? " " : "  ", parts);
     }
 
+    /// <summary>
+    /// "Claude 5h 41 · W 68 | Codex 5h 25 · W 18" — buckets are matched by duration
+    /// (300/10080 min), never by name. Providers with no usable data show their state.
+    /// </summary>
+    public static string ProviderLine(
+        IReadOnlyList<UsageSnapshot> snapshots,
+        Func<string, string> localize)
+    {
+        if (snapshots.Count == 0)
+        {
+            return localize("Common_NotConnected");
+        }
+
+        var parts = new List<string>(snapshots.Count);
+        foreach (var snapshot in snapshots)
+        {
+            parts.Add(FormatProvider(snapshot, localize));
+        }
+
+        return string.Join("  |  ", parts);
+    }
+
+    private static string FormatProvider(UsageSnapshot snapshot, Func<string, string> localize)
+    {
+        var name = snapshot.ProviderId switch
+        {
+            "codex" => "Codex",
+            "claude" => "Claude",
+            _ => snapshot.ProviderId,
+        };
+
+        switch (snapshot.Freshness)
+        {
+            case DataFreshness.AuthenticationRequired:
+                return $"{name} {localize("Freshness_AuthenticationRequired")}";
+            case DataFreshness.Error:
+                return $"{name} {localize("Freshness_Error")}";
+            case DataFreshness.Unavailable:
+                return $"{name} —";
+        }
+
+        var five = snapshot.Windows.FirstOrDefault(w => w.Duration == TimeSpan.FromMinutes(300));
+        var week = snapshot.Windows.FirstOrDefault(w => w.Duration == TimeSpan.FromMinutes(10080));
+
+        var segments = new List<string>(2);
+        if (five is not null)
+        {
+            segments.Add($"5h {UnitFormatter.Percent(five.UsedPercent)}");
+        }
+
+        if (week is not null)
+        {
+            segments.Add($"W {UnitFormatter.Percent(week.UsedPercent)}");
+        }
+
+        if (segments.Count == 0)
+        {
+            var first = snapshot.Windows.FirstOrDefault();
+            segments.Add(first is null ? "—" : $"{first.DisplayName} {UnitFormatter.Percent(first.UsedPercent)}");
+        }
+
+        var text = $"{name} {string.Join(" · ", segments)}";
+        if (snapshot.Freshness == DataFreshness.Stale)
+        {
+            text += $" ({localize("Freshness_Stale")})";
+        }
+
+        return text;
+    }
+
     private static string Token(string label, string value, bool compact)
         => compact ? label + value : label + " " + value;
 }
