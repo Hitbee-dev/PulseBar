@@ -40,7 +40,7 @@ PulseBar는 이 모든 것을 **시계 옆 두 픽셀 거리**에 둡니다 — 
 
 - 🚦 **Codex 한도 + 원클릭 로그인** — 공식 `codex app-server`가 보고하는 모든 rate-limit 버킷(창 길이 기준 분류라 새 버킷도 자동 인식), 플랜, 크레딧, 일별/누적 토큰 활동. 미로그인이면 클릭 한 번에 공식 브라우저 로그인이 열리고, 완료 즉시 숫자가 나타납니다.
 
-- 🧮 **로컬 토큰 텔레메트리 (opt-in)** — 이 PC의 Claude Code가 실제로 소비한 모델별 토큰(입력/출력/캐시읽기/캐시생성)을 오늘/최근 7일로 집계 — Claude Code 공식 OpenTelemetry를 루프백 전용 수신기로 받습니다. **프롬프트와 응답은 절대 수집하지 않습니다.**
+- 🧮 **로컬 토큰 텔레메트리** — 이 PC의 Claude Code가 실제로 소비한 모델별 토큰(입력/출력/캐시읽기/캐시생성)을 오늘/최근 7일로 집계 — Claude Code 공식 OpenTelemetry를 루프백 전용 수신기로 받습니다. 사용자가 직접 *Claude 로그인*을 클릭할 때만 설정되며 자동으로 켜지지 않습니다. **프롬프트와 응답은 절대 수집하지 않습니다.**
 
 - 🐧 **Windows + WSL 완전 지원** — Windows와 모든 WSL 배포판에서 `claude`/`codex` 자동 탐지. 버전 인지형: snap, nvm, `~/.local/bin` 설치가 공존하면 각각을 조사해 최신을 선택 — 최신 서버 API와 안 맞는 구버전 바이너리는 자동으로 걸러냅니다.
 
@@ -82,8 +82,7 @@ powershell -ExecutionPolicy Bypass -File packaging/portable/build-portable.ps1
 | 단계 | 조작 | 결과 |
 |---|---|---|
 | 1 | 트레이 우클릭 → **Codex 로그인** | 공식 브라우저 로그인; 완료 즉시 한도 표시 |
-| 2 | 트레이 우클릭 → **Claude 사용량 연동** | statusline 브리지 설치 — 기존 HUD가 있으면 래핑 동의를 물음. Claude Code 1회 재시작 |
-| 3 *(선택)* | 트레이 우클릭 → **Fable 토큰 수집 연동** | 공식 OTel로 로컬 모델별 토큰 집계. Claude Code 1회 재시작 |
+| 2 | 트레이 우클릭 → **Claude 로그인** | 클릭 한 번으로 사용량 브리지(statusline)와 로컬 토큰 텔레메트리(공식 OTel)를 함께 연동. 기존 HUD는 동의 후에만 래핑되고, 거부하면 설정을 건드리지 않습니다. Claude Code 1회 재시작 |
 
 ## 📖 바 읽는 법
 

@@ -42,12 +42,6 @@ public partial class DetailWindow : Window
     private async void OnCodexLoginClick(object sender, RoutedEventArgs e)
         => await _actions.CodexLoginAsync();
 
-    private void OnOpenClaudeClick(object sender, RoutedEventArgs e)
-        => _actions.OpenClaude();
-
-    private async void OnInstallStatuslineClick(object sender, RoutedEventArgs e)
-        => await _actions.InstallStatuslineAsync();
-
-    private async void OnInstallOtelClick(object sender, RoutedEventArgs e)
-        => await _actions.InstallOtelAsync();
+    private async void OnClaudeLoginClick(object sender, RoutedEventArgs e)
+        => await _actions.ClaudeConnectAsync();
 }

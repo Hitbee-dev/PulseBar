@@ -40,7 +40,7 @@ PulseBar puts all of it **two pixels from your clock** — using only **official
 
 - 🚦 **Codex Limits + One-Click Login** — every rate-limit bucket from the official `codex app-server` (classified by window duration, so new buckets Just Work), plan, credits, and daily/lifetime token activity. Not logged in? One click opens the official browser login; numbers appear the moment it completes.
 
-- 🧮 **Local Token Telemetry (opt-in)** — count the actual model tokens (input / output / cache-read / cache-creation) your machine's Claude Code consumes, per model, today and last 7 days — via Claude Code's official OpenTelemetry export into a loopback-only receiver. **Prompts and responses are never collected. Ever.**
+- 🧮 **Local Token Telemetry** — count the actual model tokens (input / output / cache-read / cache-creation) your machine's Claude Code consumes, per model, today and last 7 days — via Claude Code's official OpenTelemetry export into a loopback-only receiver. Set up only by your explicit *Claude login* click, never automatically. **Prompts and responses are never collected. Ever.**
 
 - 🐧 **Windows + WSL, First-Class** — auto-detects `claude`/`codex` on Windows *and* inside every WSL distro. Version-aware: when snap, nvm, and `~/.local/bin` installs coexist, PulseBar probes each and picks the newest — stale binaries that break against current server APIs get skipped automatically.
 
@@ -82,8 +82,7 @@ powershell -ExecutionPolicy Bypass -File packaging/portable/build-portable.ps1
 | Step | Action | What happens |
 |---|---|---|
 | 1 | Tray right-click → **Codex login** | Official browser login; limits appear on completion |
-| 2 | Tray right-click → **Connect Claude usage** | Installs the statusline bridge — or asks consent to wrap your existing HUD. Restart Claude Code once |
-| 3 *(optional)* | Tray right-click → **Enable Fable token telemetry** | Local per-model token counts via official OTel. Restart Claude Code once |
+| 2 | Tray right-click → **Claude login** | One click sets up both the usage bridge (statusline) and local token telemetry (official OTel). An existing HUD is only wrapped after you confirm — declining leaves your settings untouched. Restart Claude Code once |
 
 ## 📖 Reading the Bar
 

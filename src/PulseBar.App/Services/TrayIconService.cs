@@ -96,10 +96,7 @@ public sealed class TrayIconService : IDisposable
         menu.Items.Add(startupItem);
 
         menu.Items.Add(_loc["Detail_CodexLogin"], null, async (_, _) => await _actions.CodexLoginAsync());
-        menu.Items.Add(_loc["Detail_OpenClaude"], null, (_, _) => _actions.OpenClaude());
-        menu.Items.Add(
-            _loc["Detail_InstallStatusline"], null, async (_, _) => await _actions.InstallStatuslineAsync());
-        menu.Items.Add(_loc["Tray_InstallOtel"], null, async (_, _) => await _actions.InstallOtelAsync());
+        menu.Items.Add(_loc["Detail_ClaudeLogin"], null, async (_, _) => await _actions.ClaudeConnectAsync());
         menu.Items.Add(_loc["Tray_OpenLogs"], null, (_, _) => OpenLogsFolder());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(_loc["Tray_Exit"], null, (_, _) => System.Windows.Application.Current.Shutdown());

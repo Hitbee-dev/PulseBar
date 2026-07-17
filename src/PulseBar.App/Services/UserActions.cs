@@ -7,9 +7,9 @@ using PulseBar.Providers.Claude.Statusline;
 namespace PulseBar.App.Services;
 
 /// <summary>
-/// User-initiated flows shared by the tray menu, overlay and detail popup:
-/// Codex browser login, Claude terminal launch, statusline install (with
-/// wrap-consent), and OTel opt-in.
+/// User-initiated flows shared by the tray menu and detail popup:
+/// Codex browser login, and the combined Claude connect flow
+/// (statusline bridge with wrap-consent + OTel token telemetry).
 /// </summary>
 public sealed class UserActions
 {
@@ -51,15 +51,33 @@ public sealed class UserActions
         }
     }
 
-    public void OpenClaude()
+    /// <summary>
+    /// One-stop Claude connection: statusline bridge (with wrap-consent for an
+    /// existing HUD) plus OTel token telemetry, reported in a single dialog.
+    /// Declining the wrap consent aborts the whole flow — settings.json is then
+    /// never touched, telemetry included.
+    /// </summary>
+    public async Task ClaudeConnectAsync()
     {
-        if (!_providers.OpenClaudeTerminal())
-        {
-            ShowMessage(_loc["Claude_OpenFailed"]);
-        }
+        // Settings I/O can hit \\wsl.localhost (slow, may cold-start the WSL VM);
+        // keep the whole flow off the UI thread. Dialogs marshal back themselves.
+        var message = await Task.Run(BuildClaudeConnectMessageAsync);
+        ShowMessage(message);
     }
 
-    public async Task InstallStatuslineAsync()
+    private async Task<string> BuildClaudeConnectMessageAsync()
+    {
+        var (statuslineMessage, aborted) = await RunStatuslineFlowAsync();
+        if (aborted)
+        {
+            return statuslineMessage;
+        }
+
+        var otelMessage = await RunOtelFlowAsync();
+        return $"{_loc["Label_Usage"]}: {statuslineMessage}\n{_loc["Label_Telemetry"]}: {otelMessage}";
+    }
+
+    private async Task<(string Message, bool Aborted)> RunStatuslineFlowAsync()
     {
         try
         {
@@ -70,31 +88,40 @@ public sealed class UserActions
                 var consent = ShowConfirm(_loc["Statusline_WrapConfirm"]);
                 if (consent != MessageBoxResult.Yes)
                 {
-                    return;
+                    return (_loc["Statusline_Skipped"], Aborted: true);
                 }
 
                 result = await _providers.InstallStatuslineAsync(wrapExisting: true, CancellationToken.None);
             }
 
-            ShowMessage(result switch
+            return (result switch
             {
                 StatuslineInstallResult.Installed => _loc["Statusline_Installed"],
                 StatuslineInstallResult.AlreadyInstalled => _loc["Statusline_AlreadyInstalled"],
+                null => _loc["Statusline_Unavailable"],
                 _ => _loc["Statusline_Failed"],
-            });
+            }, Aborted: false);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Statusline install flow failed.");
-            ShowMessage(_loc["Statusline_Failed"]);
+            return (_loc["Statusline_Failed"], Aborted: false);
         }
     }
 
-    public async Task InstallOtelAsync()
+    private async Task<string> RunOtelFlowAsync()
     {
-        var resultKey = await _providers.InstallOtelEnvAsync(
-            _receiver.Endpoint, _receiver.Secret, CancellationToken.None);
-        ShowMessage(_loc[resultKey]);
+        try
+        {
+            var resultKey = await _providers.InstallOtelEnvAsync(
+                _receiver.Endpoint, _receiver.Secret, CancellationToken.None);
+            return _loc[resultKey];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OTel install flow failed.");
+            return _loc["Otel_Failed"];
+        }
     }
 
     private void ShowMessage(string text)

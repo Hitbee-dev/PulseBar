@@ -75,12 +75,14 @@ public sealed class ProviderManager : BackgroundService
         var profile = _config.Current.Providers.FirstOrDefault(p => p.ProviderId == "claude");
         if (profile is null)
         {
+            _logger.LogInformation("Statusline install requested but no Claude profile is configured.");
             return null;
         }
 
         var bridgeExe = Path.Combine(AppContext.BaseDirectory, "PulseBar.Bridge.exe");
         if (!File.Exists(bridgeExe))
         {
+            _logger.LogWarning("Bridge executable not found at {Path}; cannot install statusline.", bridgeExe);
             return null;
         }
 
@@ -101,52 +103,6 @@ public sealed class ProviderManager : BackgroundService
 
         _logger.LogInformation("Claude statusline install (wrap={Wrap}): {Result}", wrapExisting, result);
         return result;
-    }
-
-    /// <summary>Opens a terminal running the detected claude CLI so the user can /login.</summary>
-    public bool OpenClaudeTerminal()
-    {
-        var profile = _config.Current.Providers.FirstOrDefault(p => p.ProviderId == "claude");
-        if (profile is null)
-        {
-            return false;
-        }
-
-        try
-        {
-            // Console-subsystem exes launched via ShellExecute get their own window;
-            // no cmd.exe involved, so config values are never shell-interpreted.
-            var startInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                UseShellExecute = true,
-                CreateNoWindow = false,
-            };
-
-            if (profile.Environment == ExecutionEnvironmentType.Wsl)
-            {
-                startInfo.FileName = "wsl.exe";
-                if (!string.IsNullOrWhiteSpace(profile.WslDistribution))
-                {
-                    startInfo.ArgumentList.Add("-d");
-                    startInfo.ArgumentList.Add(profile.WslDistribution);
-                }
-
-                startInfo.ArgumentList.Add("--");
-                startInfo.ArgumentList.Add(profile.ExecutablePath ?? "claude");
-            }
-            else
-            {
-                startInfo.FileName = profile.ExecutablePath ?? "claude";
-            }
-
-            System.Diagnostics.Process.Start(startInfo);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to open Claude terminal.");
-            return false;
-        }
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -341,7 +297,8 @@ public sealed class ProviderManager : BackgroundService
     }
 
     /// <summary>
-    /// Opt-in Claude OTel telemetry setup (explicit user action from the tray menu).
+    /// Claude OTel telemetry setup — runs as the second half of the user-initiated
+    /// Claude connect flow (tray menu or detail popup); never invoked automatically.
     /// Returns a localization key describing the outcome.
     /// </summary>
     public async Task<string> InstallOtelEnvAsync(

@@ -53,14 +53,15 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
                 <WrapPanel Margin="0,4,0,0">
-                    <Button Content="{Binding Loc[Detail_CodexLogin]}" MinWidth="100"
-                            Margin="0,0,8,8" Padding="8,3" Click="OnCodexLoginClick" />
-                    <Button Content="{Binding Loc[Detail_OpenClaude]}" MinWidth="100"
-                            Margin="0,0,8,8" Padding="8,3" Click="OnOpenClaudeClick" />
-                    <Button Content="{Binding Loc[Detail_InstallStatusline]}" MinWidth="100"
-                            Margin="0,0,8,8" Padding="8,3" Click="OnInstallStatuslineClick" />
-                    <Button Content="{Binding Loc[Tray_InstallOtel]}" MinWidth="100"
-                            Margin="0,0,8,8" Padding="8,3" Click="OnInstallOtelClick" />
+                    <WrapPanel.Resources>
+                        <Style TargetType="Button">
+                            <Setter Property="MinWidth" Value="120" />
+                            <Setter Property="Margin" Value="0,0,8,8" />
+                            <Setter Property="Padding" Value="10,4" />
+                        </Style>
+                    </WrapPanel.Resources>
+                    <Button Content="{Binding Loc[Detail_CodexLogin]}" Click="OnCodexLoginClick" />
+                    <Button Content="{Binding Loc[Detail_ClaudeLogin]}" Click="OnClaudeLoginClick" />
                 </WrapPanel>
             </StackPanel>
         </TabItem>
