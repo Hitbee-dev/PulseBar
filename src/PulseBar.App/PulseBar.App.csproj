@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- WinForms is used only for the tray NotifyIcon (no extra NuGet dependency). -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>PulseBar</AssemblyName>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PulseBar.Core\PulseBar.Core.csproj" />
+    <ProjectReference Include="..\PulseBar.Windows\PulseBar.Windows.csproj" />
+    <ProjectReference Include="..\PulseBar.Providers.Codex\PulseBar.Providers.Codex.csproj" />
+    <ProjectReference Include="..\PulseBar.Providers.Claude\PulseBar.Providers.Claude.csproj" />
+    <ProjectReference Include="..\PulseBar.Storage\PulseBar.Storage.csproj" />
+  </ItemGroup>
+
+</Project>

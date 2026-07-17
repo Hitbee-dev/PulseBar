@@ -1,0 +1,24 @@
+# Build results
+bin/
+obj/
+artifacts/
+publish/
+TestResults/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+*.user
+*.suo
+
+# NuGet
+*.nupkg
+packages/
+
+# OMC operational state (project-scoped skills are the committable exception)
+.omc/*
+!.omc/skills/
+
+# OS
+Thumbs.db
+.DS_Store
