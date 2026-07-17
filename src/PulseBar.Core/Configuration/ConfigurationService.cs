@@ -138,7 +138,7 @@ public sealed class ConfigurationService : IConfigurationService
             return false;
         }
 
-        if (imported is null)
+        if (imported is null || !AppConfigValidator.IsValid(imported))
         {
             return false;
         }

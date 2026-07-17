@@ -114,21 +114,29 @@ public sealed class ProviderManager : BackgroundService
 
         try
         {
+            // Console-subsystem exes launched via ShellExecute get their own window;
+            // no cmd.exe involved, so config values are never shell-interpreted.
             var startInfo = new System.Diagnostics.ProcessStartInfo
             {
-                FileName = "cmd.exe",
                 UseShellExecute = true,
                 CreateNoWindow = false,
             };
 
             if (profile.Environment == ExecutionEnvironmentType.Wsl)
             {
-                startInfo.Arguments =
-                    $"/c start \"Claude Code\" wsl.exe -d {profile.WslDistribution} -- {profile.ExecutablePath ?? "claude"}";
+                startInfo.FileName = "wsl.exe";
+                if (!string.IsNullOrWhiteSpace(profile.WslDistribution))
+                {
+                    startInfo.ArgumentList.Add("-d");
+                    startInfo.ArgumentList.Add(profile.WslDistribution);
+                }
+
+                startInfo.ArgumentList.Add("--");
+                startInfo.ArgumentList.Add(profile.ExecutablePath ?? "claude");
             }
             else
             {
-                startInfo.Arguments = $"/c start \"Claude Code\" \"{profile.ExecutablePath ?? "claude"}\"";
+                startInfo.FileName = profile.ExecutablePath ?? "claude";
             }
 
             System.Diagnostics.Process.Start(startInfo);
