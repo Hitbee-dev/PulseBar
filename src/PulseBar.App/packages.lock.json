@@ -367,6 +367,7 @@
       "pulsebar.windows": {
         "type": "Project",
         "dependencies": {
+          "Microsoft.Extensions.Hosting.Abstractions": "[8.0.1, )",
           "PulseBar.Core": "[0.1.0, )"
         }
       }

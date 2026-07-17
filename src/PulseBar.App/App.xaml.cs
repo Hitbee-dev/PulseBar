@@ -4,8 +4,10 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PulseBar.App.Services;
 using PulseBar.Core.Configuration;
+using PulseBar.Core.Interfaces;
 using PulseBar.Core.Localization;
 using PulseBar.Core.Logging;
+using PulseBar.Windows.Metrics;
 using PulseBar.Windows.Startup;
 
 namespace PulseBar.App;
@@ -49,6 +51,9 @@ public partial class App : Application
                 });
                 services.AddSingleton<IStartupManager, StartupManager>();
                 services.AddSingleton<TrayIconService>();
+                services.AddSingleton<SystemMetricsCollector>();
+                services.AddSingleton<ISystemMetricsSource>(sp => sp.GetRequiredService<SystemMetricsCollector>());
+                services.AddHostedService(sp => sp.GetRequiredService<SystemMetricsCollector>());
             })
             .Build();
 
@@ -60,12 +65,12 @@ public partial class App : Application
             args.Handled = true;
         };
 
-        _host.Start();
+        // Load config before hosted services start (the metrics collector reads it on start).
+        var config = _host.Services.GetRequiredService<IConfigurationService>();
+        config.Load();
+        _host.Services.GetRequiredService<ILocalizationService>().SetLanguage(config.Current.Appearance.Language);
 
-        _host.Services.GetRequiredService<IConfigurationService>().Load();
-        _host.Services
-            .GetRequiredService<ILocalizationService>()
-            .SetLanguage(_host.Services.GetRequiredService<IConfigurationService>().Current.Appearance.Language);
+        _host.Start();
         _host.Services.GetRequiredService<TrayIconService>().Initialize();
 
         logger.LogInformation("PulseBar started.");
