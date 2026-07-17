@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
 [![Platform](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6)](https://github.com/Hitbee-dev/PulseBar/releases/latest)
-[![Tests](https://img.shields.io/badge/tests-180%20passing-brightgreen)](tests)
+[![Tests](https://img.shields.io/badge/tests-190%20passing-brightgreen)](tests)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](https://github.com/Hitbee-dev/PulseBar/pulls)
 
 **English** · [한국어](README.ko.md)
@@ -128,7 +128,7 @@ Full policy: [docs/security.md](docs/security.md)
 
 ```powershell
 dotnet build PulseBar.sln -c Release
-dotnet test  PulseBar.sln -c Release --no-build   # 180 tests
+dotnet test  PulseBar.sln -c Release --no-build   # 190 tests
 ```
 
 | Project | Role |
