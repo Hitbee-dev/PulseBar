@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PulseBar.Core\PulseBar.Core.csproj" />
+    <ProjectReference Include="..\PulseBar.Providers.Claude\PulseBar.Providers.Claude.csproj" />
   </ItemGroup>
 
 </Project>

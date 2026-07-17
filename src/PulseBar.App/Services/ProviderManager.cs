@@ -1,9 +1,12 @@
 using System.Collections.Concurrent;
+using System.IO;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PulseBar.Core.Configuration;
 using PulseBar.Core.Interfaces;
 using PulseBar.Core.Models;
+using PulseBar.Providers.Claude;
+using PulseBar.Providers.Claude.Statusline;
 using PulseBar.Providers.Codex;
 using PulseBar.Windows.Environments;
 
@@ -17,6 +20,7 @@ namespace PulseBar.App.Services;
 public sealed class ProviderManager : BackgroundService
 {
     private readonly IConfigurationService _config;
+    private readonly IAppPaths _paths;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<ProviderManager> _logger;
     private readonly List<IUsageProvider> _providers = [];
@@ -24,10 +28,12 @@ public sealed class ProviderManager : BackgroundService
 
     public ProviderManager(
         IConfigurationService config,
+        IAppPaths paths,
         ILoggerFactory loggerFactory,
         ILogger<ProviderManager> logger)
     {
         _config = config;
+        _paths = paths;
         _loggerFactory = loggerFactory;
         _logger = logger;
     }
@@ -115,27 +121,42 @@ public sealed class ProviderManager : BackgroundService
                 };
                 return new CodexProvider(_loggerFactory.CreateLogger<CodexProvider>(), options);
             case "claude":
-                _logger.LogInformation("Claude provider profile found; implemented in a later phase.");
-                return null;
+                return new ClaudeProvider(
+                    _loggerFactory.CreateLogger<ClaudeProvider>(),
+                    new ClaudeProviderOptions { CachePath = _paths.ClaudeStatusCacheFile });
             default:
                 _logger.LogWarning("Unknown provider id '{ProviderId}' in config.", profile.ProviderId);
                 return null;
         }
     }
 
-    /// <summary>First run only: detect codex CLIs and persist profiles for them.</summary>
+    /// <summary>First run only: detect provider CLIs and persist profiles for them.</summary>
     private async Task EnsureProfilesDetectedAsync(CancellationToken cancellationToken)
     {
-        if (_config.Current.Providers.Any(p => p.ProviderId == "codex"))
+        await DetectAndAddProfileAsync("codex", cancellationToken).ConfigureAwait(false);
+        var claudeProfile = await DetectAndAddProfileAsync("claude", cancellationToken).ConfigureAwait(false)
+            ?? _config.Current.Providers.FirstOrDefault(p => p.ProviderId == "claude");
+
+        if (claudeProfile is not null)
         {
-            return;
+            await TryInstallClaudeStatuslineAsync(claudeProfile, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<ProviderProfileConfig?> DetectAndAddProfileAsync(
+        string providerId,
+        CancellationToken cancellationToken)
+    {
+        if (_config.Current.Providers.Any(p => p.ProviderId == providerId))
+        {
+            return null;
         }
 
-        var detected = await CliDetector.DetectAsync("codex", cancellationToken).ConfigureAwait(false);
+        var detected = await CliDetector.DetectAsync(providerId, cancellationToken).ConfigureAwait(false);
         if (detected.Count == 0)
         {
-            _logger.LogInformation("No codex CLI detected (Windows/WSL).");
-            return;
+            _logger.LogInformation("No {Provider} CLI detected (Windows/WSL).", providerId);
+            return null;
         }
 
         // Prefer Windows native when both exist; one profile is enough for MVP.
@@ -144,18 +165,93 @@ public sealed class ProviderManager : BackgroundService
             .First();
 
         _logger.LogInformation(
-            "Detected codex: {Environment} {Distro} {Path}",
-            best.Environment, best.WslDistribution ?? "-", best.ExecutablePath);
+            "Detected {Provider}: {Environment} {Distro} {Path}",
+            providerId, best.Environment, best.WslDistribution ?? "-", best.ExecutablePath);
 
-        _config.Update(c => c.Providers.Add(new ProviderProfileConfig
+        var profile = new ProviderProfileConfig
         {
-            Id = best.Environment == ExecutionEnvironmentType.Wsl ? $"codex-wsl" : "codex-windows",
-            ProviderId = "codex",
+            Id = best.Environment == ExecutionEnvironmentType.Wsl
+                ? $"{providerId}-wsl"
+                : $"{providerId}-windows",
+            ProviderId = providerId,
             Environment = best.Environment,
             ExecutablePath = best.ExecutablePath,
             WslDistribution = best.WslDistribution,
             Enabled = true,
             RefreshIntervalSeconds = 60,
-        }));
+        };
+        _config.Update(c => c.Providers.Add(profile));
+        return profile;
+    }
+
+    /// <summary>
+    /// Registers the bridge as Claude Code's statusLine when none is configured.
+    /// An existing foreign statusLine is never touched (spec §10.2) — the merge
+    /// instructions are logged instead.
+    /// </summary>
+    private async Task TryInstallClaudeStatuslineAsync(
+        ProviderProfileConfig profile,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var bridgeExe = Path.Combine(AppContext.BaseDirectory, "PulseBar.Bridge.exe");
+            if (!File.Exists(bridgeExe))
+            {
+                _logger.LogWarning("Bridge executable not found at {Path}; cannot install statusline.", bridgeExe);
+                return;
+            }
+
+            var isWsl = profile.Environment == ExecutionEnvironmentType.Wsl;
+            string settingsPath;
+            if (isWsl)
+            {
+                var home = profile.LinuxHome
+                    ?? await CliDetector.GetWslHomeAsync(profile.WslDistribution, cancellationToken).ConfigureAwait(false);
+                if (home is null)
+                {
+                    _logger.LogWarning("Could not resolve WSL home directory; skipping statusline install.");
+                    return;
+                }
+
+                profile.LinuxHome = home;
+                _config.Update(_ => { }); // Persist the resolved home.
+                settingsPath = $@"\\wsl.localhost\{profile.WslDistribution}{home.Replace('/', '\\')}\.claude\settings.json";
+            }
+            else
+            {
+                settingsPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    ".claude", "settings.json");
+            }
+
+            var command = ClaudeSettingsInstaller.BuildBridgeCommand(
+                bridgeExe, _paths.ClaudeStatusCacheFile, isWsl);
+            var result = ClaudeSettingsInstaller.Install(settingsPath, command, _paths.BackupsDir);
+
+            switch (result)
+            {
+                case StatuslineInstallResult.Installed:
+                    _logger.LogInformation("Claude statusline bridge installed into {Path}.", settingsPath);
+                    break;
+                case StatuslineInstallResult.AlreadyInstalled:
+                    _logger.LogInformation("Claude statusline bridge already installed.");
+                    break;
+                case StatuslineInstallResult.ExistingStatusLine:
+                    _logger.LogWarning(
+                        "Claude settings already define a statusLine; not touching it. " +
+                        "To feed PulseBar too, wrap your current command manually: " +
+                        "{Command} --passthrough \"<your current statusline command>\"",
+                        command);
+                    break;
+                case StatuslineInstallResult.SettingsUnreadable:
+                    _logger.LogWarning("Claude settings.json could not be parsed; nothing was modified.");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Claude statusline installation failed.");
+        }
     }
 }

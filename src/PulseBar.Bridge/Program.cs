@@ -1,22 +1,38 @@
+using PulseBar.Bridge.Commands;
+
 namespace PulseBar.Bridge;
 
 /// <summary>
-/// Lightweight bridge executable. Subcommands:
-///   claude-statusline --output &lt;cache-path&gt;
-/// Reads Claude Code statusline JSON from stdin and writes a normalized cache file.
-/// Implemented in Phase 5; skeleton only for now.
+/// Lightweight bridge executable. Commands:
+///   claude-statusline --output &lt;cache-path&gt; [--passthrough &lt;command&gt;]
+/// Errors never propagate as non-zero exit codes: this binary sits inside the
+/// Claude Code statusline pipeline and must never disturb it.
 /// </summary>
 public static class Program
 {
     public static int Main(string[] args)
     {
-        if (args.Length == 0)
+        try
         {
-            Console.Error.WriteLine("PulseBar.Bridge: no command specified.");
+            if (args.Length > 0 && args[0] == "claude-statusline")
+            {
+                return ClaudeStatuslineCommand.Run(args[1..], Console.In, Console.Out, Console.Error);
+            }
+
+            Console.Error.WriteLine("PulseBar.Bridge: unknown or missing command.");
             return 0;
         }
+        catch (Exception ex)
+        {
+            try
+            {
+                Console.Error.WriteLine($"PulseBar.Bridge: {ex.GetType().Name}");
+            }
+            catch (IOException)
+            {
+            }
 
-        // Never break the caller (e.g. Claude Code statusline): default to exit code 0.
-        return 0;
+            return 0;
+        }
     }
 }

@@ -153,7 +153,8 @@
       "pulsebar.bridge": {
         "type": "Project",
         "dependencies": {
-          "PulseBar.Core": "[0.1.0, )"
+          "PulseBar.Core": "[0.1.0, )",
+          "PulseBar.Providers.Claude": "[0.1.0, )"
         }
       },
       "pulsebar.core": {

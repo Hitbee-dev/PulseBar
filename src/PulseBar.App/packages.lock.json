@@ -338,6 +338,13 @@
         "resolved": "4.5.3",
         "contentHash": "3oDzvc/zzetpTKWMShs1AADwZjQ/36HnsufHRPcOjyRAAMLDlu2iD33MBI2opxnezcVUtXyqDXXjoFMOU9c7SA=="
       },
+      "pulsebar.bridge": {
+        "type": "Project",
+        "dependencies": {
+          "PulseBar.Core": "[0.1.0, )",
+          "PulseBar.Providers.Claude": "[0.1.0, )"
+        }
+      },
       "pulsebar.core": {
         "type": "Project",
         "dependencies": {

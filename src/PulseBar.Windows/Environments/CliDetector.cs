@@ -56,6 +56,24 @@ public static class CliDetector
         return results;
     }
 
+    /// <summary>Home directory (e.g. "/home/chan") of the default user in a distro.</summary>
+    public static async Task<string?> GetWslHomeAsync(
+        string? distribution,
+        CancellationToken cancellationToken)
+    {
+        var args = new List<string>();
+        if (!string.IsNullOrWhiteSpace(distribution))
+        {
+            args.AddRange(["-d", distribution]);
+        }
+
+        args.AddRange(["--", "sh", "-lc", "echo \"$HOME\""]);
+        var output = await RunCaptureAsync("wsl.exe", args, outputEncoding: null, cancellationToken)
+            .ConfigureAwait(false);
+        var home = output?.Trim();
+        return string.IsNullOrWhiteSpace(home) || !home.StartsWith('/') ? null : home;
+    }
+
     public static async Task<IReadOnlyList<string>> ListWslDistributionsAsync(
         CancellationToken cancellationToken)
     {

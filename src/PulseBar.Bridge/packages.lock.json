@@ -35,6 +35,12 @@
           "Microsoft.Extensions.Logging.Abstractions": "[8.0.2, )",
           "Microsoft.Extensions.Options": "[8.0.2, )"
         }
+      },
+      "pulsebar.providers.claude": {
+        "type": "Project",
+        "dependencies": {
+          "PulseBar.Core": "[0.1.0, )"
+        }
       }
     }
   }
