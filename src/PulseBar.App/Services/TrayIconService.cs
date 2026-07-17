@@ -42,6 +42,10 @@ public sealed class TrayIconService : IDisposable
     /// <summary>Raised when the user asks for a manual provider refresh.</summary>
     public event EventHandler? RefreshRequested;
 
+    public void RequestRefresh() => RefreshRequested?.Invoke(this, EventArgs.Empty);
+
+    public void ShowSettingsWindow() => ShowSettings();
+
     public void Initialize()
     {
         _icon = new NotifyIcon

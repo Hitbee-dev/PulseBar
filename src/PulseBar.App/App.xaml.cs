@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PulseBar.App.Services;
+using PulseBar.App.ViewModels;
+using PulseBar.App.Views;
 using PulseBar.Core.Configuration;
 using PulseBar.Core.Interfaces;
 using PulseBar.Core.Localization;
@@ -51,6 +53,7 @@ public partial class App : Application
                 });
                 services.AddSingleton<IStartupManager, StartupManager>();
                 services.AddSingleton<TrayIconService>();
+                services.AddSingleton<OverlayPositioner>();
                 services.AddSingleton<SystemMetricsCollector>();
                 services.AddSingleton<ISystemMetricsSource>(sp => sp.GetRequiredService<SystemMetricsCollector>());
                 services.AddHostedService(sp => sp.GetRequiredService<SystemMetricsCollector>());
@@ -71,7 +74,21 @@ public partial class App : Application
         _host.Services.GetRequiredService<ILocalizationService>().SetLanguage(config.Current.Appearance.Language);
 
         _host.Start();
-        _host.Services.GetRequiredService<TrayIconService>().Initialize();
+
+        var tray = _host.Services.GetRequiredService<TrayIconService>();
+        tray.Initialize();
+
+        var overlayViewModel = new OverlayViewModel(
+            _host.Services.GetRequiredService<ISystemMetricsSource>(),
+            config,
+            _host.Services.GetRequiredService<ILocalizationService>());
+        var overlay = new OverlayWindow(
+            overlayViewModel,
+            _host.Services.GetRequiredService<ILocalizationService>(),
+            _host.Services.GetRequiredService<OverlayPositioner>(),
+            tray.ShowSettingsWindow,
+            tray.RequestRefresh);
+        overlay.Show();
 
         logger.LogInformation("PulseBar started.");
     }

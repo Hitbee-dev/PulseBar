@@ -31,6 +31,15 @@ public sealed class AppearanceConfig
     public double FontSize { get; set; } = 11;
     public double Opacity { get; set; } = 0.96;
     public string TargetMonitor { get; set; } = "primary";
+
+    /// <summary>Saved floating-mode position per monitor device name (DIP coordinates).</summary>
+    public Dictionary<string, FloatingPosition> FloatingPositions { get; set; } = [];
+}
+
+public sealed class FloatingPosition
+{
+    public double X { get; set; }
+    public double Y { get; set; }
 }
 
 public sealed class MetricsConfig
