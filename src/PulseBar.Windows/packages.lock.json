@@ -80,7 +80,6 @@
           "Microsoft.Extensions.Options": "[8.0.2, )"
         }
       }
-    },
-    "net8.0-windows7.0/win-x64": {}
+    }
   }
 }

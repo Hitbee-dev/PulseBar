@@ -14,8 +14,8 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private readonly ILocalizationService _loc;
     private readonly Dispatcher _dispatcher;
 
-    private string _systemLine = "…";
-    private string _providerLine = "";
+    private IReadOnlyList<BarSegment> _systemSegments = [new BarSegment("…", BarSegmentKind.Label)];
+    private IReadOnlyList<BarSegment> _providerSegments = [];
 
     private readonly Services.FableUsageService? _fable;
     private IReadOnlyList<UsageSnapshot> _snapshots = [];
@@ -33,7 +33,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         _fable = fable;
         _dispatcher = Dispatcher.CurrentDispatcher;
 
-        _providerLine = loc["Common_NotConnected"];
+        _providerSegments = [new BarSegment(loc["Common_NotConnected"], BarSegmentKind.Stale)];
         metrics.MetricsUpdated += OnMetricsUpdated;
         providers.SnapshotsUpdated += (_, snapshots) => _dispatcher.BeginInvoke(() =>
         {
@@ -51,7 +51,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
 
     private void RefreshProviderTexts()
     {
-        ProviderLine = CompactBarFormatter.ProviderLine(_snapshots, _loc.T);
+        ProviderSegments = CompactBarFormatter.ProviderSegments(_snapshots, _loc.T, _config.Current.Thresholds);
         TooltipText = BuildTooltip();
     }
 
@@ -119,30 +119,24 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public string SystemLine
+    public IReadOnlyList<BarSegment> SystemSegments
     {
-        get => _systemLine;
+        get => _systemSegments;
         private set
         {
-            if (_systemLine != value)
-            {
-                _systemLine = value;
-                Raise(nameof(SystemLine));
-            }
+            _systemSegments = value;
+            Raise(nameof(SystemSegments));
         }
     }
 
-    /// <summary>AI provider summary; placeholder until providers are wired (Phase 4/5).</summary>
-    public string ProviderLine
+    /// <summary>AI provider summary segments ("연동 필요" placeholder until providers report).</summary>
+    public IReadOnlyList<BarSegment> ProviderSegments
     {
-        get => _providerLine;
+        get => _providerSegments;
         private set
         {
-            if (_providerLine != value)
-            {
-                _providerLine = value;
-                Raise(nameof(ProviderLine));
-            }
+            _providerSegments = value;
+            Raise(nameof(ProviderSegments));
         }
     }
 
@@ -158,8 +152,11 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     {
         _dispatcher.BeginInvoke(() =>
         {
-            var appearance = _config.Current.Appearance;
-            SystemLine = CompactBarFormatter.SystemLine(metrics, _config.Current.Metrics, appearance.Layout);
+            SystemSegments = CompactBarFormatter.SystemSegments(
+                metrics,
+                _config.Current.Metrics,
+                _config.Current.Appearance.Layout,
+                _config.Current.Thresholds);
         });
     }
 
