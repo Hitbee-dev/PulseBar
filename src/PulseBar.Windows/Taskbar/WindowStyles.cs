@@ -17,4 +17,14 @@ public static class WindowStyles
 
     public static uint RegisterTaskbarCreatedMessage()
         => User32.RegisterWindowMessageW(TaskbarLocator.TaskbarCreatedMessageName);
+
+    /// <summary>
+    /// Re-asserts topmost z-order without stealing focus. Fullscreen apps push the
+    /// overlay behind; calling this on the reposition cycle brings it back once the
+    /// fullscreen app is gone.
+    /// </summary>
+    public static void EnsureTopmost(IntPtr hwnd)
+        => User32.SetWindowPos(
+            hwnd, User32.HWND_TOPMOST, 0, 0, 0, 0,
+            User32.SWP_NOMOVE | User32.SWP_NOSIZE | User32.SWP_NOACTIVATE);
 }

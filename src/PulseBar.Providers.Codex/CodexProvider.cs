@@ -275,12 +275,26 @@ public sealed class CodexProvider : IUsageProvider
 
         _accountKey = account.Email;
 
-        var rateLimitsResult = await rpc.InvokeAsync(
-            "account/rateLimits/read", null, _options.RpcTimeout, cancellationToken).ConfigureAwait(false);
-        var rateLimits = CodexPayloadParser.ParseRateLimits(rateLimitsResult);
-        foreach (var anomaly in rateLimits.Anomalies)
+        // A rateLimits failure (e.g. an outdated codex binary that cannot decode a
+        // new server plan type) must not kill the connection loop — keep the account
+        // visible and surface the error instead.
+        CodexRateLimits? rateLimits = null;
+        string? rateLimitError = null;
+        try
         {
-            _logger.LogWarning("Codex rate-limit anomaly: {Anomaly}", anomaly);
+            var rateLimitsResult = await rpc.InvokeAsync(
+                "account/rateLimits/read", null, _options.RpcTimeout, cancellationToken).ConfigureAwait(false);
+            rateLimits = CodexPayloadParser.ParseRateLimits(rateLimitsResult);
+            foreach (var anomaly in rateLimits.Anomalies)
+            {
+                _logger.LogWarning("Codex rate-limit anomaly: {Anomaly}", anomaly);
+            }
+        }
+        catch (JsonRpcException ex)
+        {
+            rateLimitError = Truncate(ex.Message, 160);
+            _logger.LogWarning(
+                "codex rateLimits/read failed (often an outdated codex CLI): {Message}", rateLimitError);
         }
 
         CodexUsage? usage = null;
@@ -308,18 +322,28 @@ public sealed class CodexProvider : IUsageProvider
             ProviderId: Id,
             AccountLabel: account.Email,
             Plan: account.PlanType,
-            Windows: rateLimits.Windows,
+            Windows: rateLimits?.Windows ?? [],
             ModelUsageToday: modelUsageToday,
             ModelUsageSevenDays: modelUsageSevenDays,
-            CreditBalance: rateLimits.CreditBalance,
+            CreditBalance: rateLimits?.CreditBalance,
             CollectedAt: DateTimeOffset.Now,
-            Freshness: DataFreshness.Fresh,
-            ErrorCode: null,
-            ErrorMessage: null);
+            Freshness: rateLimits is null ? DataFreshness.Error : DataFreshness.Fresh,
+            ErrorCode: rateLimits is null ? "rate-limits-unavailable" : null,
+            ErrorMessage: rateLimitError);
 
         SnapshotUpdated?.Invoke(this, _latest);
-        ChangeState(ProviderConnectionState.Connected, null);
+        if (rateLimits is null)
+        {
+            ChangeState(ProviderConnectionState.Error, rateLimitError);
+        }
+        else
+        {
+            ChangeState(ProviderConnectionState.Connected, null);
+        }
     }
+
+    private static string Truncate(string value, int max)
+        => value.Length <= max ? value : value[..max] + "…";
 
     private void MarkLatestStale()
     {

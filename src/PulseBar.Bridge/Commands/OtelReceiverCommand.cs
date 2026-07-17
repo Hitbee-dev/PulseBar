@@ -74,6 +74,34 @@ public static class OtelReceiverCommand
         stderr.WriteLine($"otel-receiver: listening on http://{listen}/v1/logs");
         using var registration = cancellationToken.Register(listener.Stop);
 
+        // The launcher (PulseBar on Windows) holds our stdin open. When it dies —
+        // even via a hard kill that can't reach into WSL — stdin hits EOF and we
+        // shut down instead of surviving as an orphan holding the port.
+        var stdinWatcher = new Thread(() =>
+        {
+            try
+            {
+                while (stdin.ReadLine() is not null)
+                {
+                }
+            }
+            catch (IOException)
+            {
+            }
+
+            try
+            {
+                listener.Stop();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        })
+        {
+            IsBackground = true,
+        };
+        stdinWatcher.Start();
+
         while (!cancellationToken.IsCancellationRequested)
         {
             HttpListenerContext context;

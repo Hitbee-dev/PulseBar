@@ -33,6 +33,15 @@ internal static class User32
     internal const long WS_EX_TOOLWINDOW = 0x00000080;
     internal const long WS_EX_NOACTIVATE = 0x08000000;
 
+    internal static readonly IntPtr HWND_TOPMOST = new(-1);
+    internal const uint SWP_NOMOVE = 0x0002;
+    internal const uint SWP_NOSIZE = 0x0001;
+    internal const uint SWP_NOACTIVATE = 0x0010;
+
+    [DllImport("user32.dll")]
+    internal static extern bool SetWindowPos(
+        IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
+
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
     internal static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);
 

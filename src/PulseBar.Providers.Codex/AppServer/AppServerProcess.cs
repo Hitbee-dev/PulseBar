@@ -71,6 +71,15 @@ public sealed class AppServerProcess : IAsyncDisposable
             }
 
             startInfo.ArgumentList.Add("--");
+            if (BuildWslPathVariable(executable) is { } pathVariable)
+            {
+                // No shell string: wsl.exe mangles quoted arguments, so the PATH
+                // override travels as a plain env token (nvm node-shim CLIs need
+                // their own bin directory on PATH in a non-login session).
+                startInfo.ArgumentList.Add("/usr/bin/env");
+                startInfo.ArgumentList.Add(pathVariable);
+            }
+
             startInfo.ArgumentList.Add(executable);
             startInfo.ArgumentList.Add("app-server");
         }
@@ -81,6 +90,19 @@ public sealed class AppServerProcess : IAsyncDisposable
         }
 
         return startInfo;
+    }
+
+    /// <summary>"PATH=&lt;exec dir&gt;:&lt;standard paths&gt;", or null for bare command names.</summary>
+    public static string? BuildWslPathVariable(string executable)
+    {
+        var slash = executable.LastIndexOf('/');
+        if (slash <= 0)
+        {
+            return null;
+        }
+
+        var directory = executable[..slash];
+        return $"PATH={directory}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin";
     }
 
     public async ValueTask DisposeAsync()

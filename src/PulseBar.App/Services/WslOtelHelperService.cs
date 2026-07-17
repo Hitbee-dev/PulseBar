@@ -149,7 +149,8 @@ public sealed class WslOtelHelperService : BackgroundService
             {
                 if (line.Length > 0)
                 {
-                    _logger.LogDebug("wsl otel helper: {Line}", line);
+                    // Low volume (startup/shutdown diagnostics only) — keep visible.
+                    _logger.LogInformation("wsl otel helper: {Line}", line);
                 }
             }
         }, CancellationToken.None);

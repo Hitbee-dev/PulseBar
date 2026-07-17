@@ -27,6 +27,13 @@ public sealed class OverlayPositioner
     {
         try
         {
+            // Fullscreen apps demote topmost windows; quietly re-assert every cycle.
+            var hwnd = new System.Windows.Interop.WindowInteropHelper(window).Handle;
+            if (hwnd != IntPtr.Zero)
+            {
+                WindowStyles.EnsureTopmost(hwnd);
+            }
+
             if (_config.Current.Appearance.Mode == DisplayMode.TaskbarOverlay
                 && TryDockToTaskbar(window))
             {
